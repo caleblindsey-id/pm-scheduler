@@ -27,7 +27,8 @@ export default function BillingExport({
   const [selected, setSelected] = useState<Set<string>>(
     new Set(tickets.map((t) => t.id))
   )
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   function toggleSelect(id: string) {
     const next = new Set(selected)
@@ -51,9 +52,45 @@ export default function BillingExport({
     router.push(`/billing?month=${newMonth}&year=${newYear}`)
   }
 
-  function handleExport() {
-    setToast('PDF export coming soon.')
-    setTimeout(() => setToast(null), 3000)
+  async function handleExport() {
+    if (selected.size === 0 || exporting) return
+
+    setExporting(true)
+    setToast(null)
+
+    try {
+      const res = await fetch('/api/billing/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketIds: Array.from(selected),
+          month,
+          year,
+        }),
+      })
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errData.error ?? `Server error ${res.status}`)
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `PM-Billing-${month}-${year}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+
+      setToast({ message: `PDF exported — ${selected.size} ticket(s) marked as billed.`, type: 'success' })
+      setSelected(new Set())
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed. Please try again.'
+      setToast({ message, type: 'error' })
+    } finally {
+      setExporting(false)
+    }
   }
 
   const selectedTotal = tickets
@@ -97,10 +134,10 @@ export default function BillingExport({
             )}
             <button
               onClick={handleExport}
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || exporting}
               className="px-4 py-1.5 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-50 transition-colors"
             >
-              Export PDF
+              {exporting ? 'Generating PDF…' : 'Export PDF'}
             </button>
           </div>
         </div>
@@ -108,8 +145,14 @@ export default function BillingExport({
 
       {/* Toast */}
       {toast && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-          {toast}
+        <div
+          className={`rounded-lg p-3 text-sm border ${
+            toast.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          {toast.message}
         </div>
       )}
 
