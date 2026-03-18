@@ -34,17 +34,16 @@ VALUES
 -- CONTACTS
 -- ============================================================
 
-INSERT INTO contacts (customer_id, synergy_id, name, email, phone, is_primary)
-VALUES
+INSERT INTO contacts (customer_id, synergy_id, name, email, phone, is_primary) VALUES
   -- Riverside Medical Center
-  (1, 'SYN-C-001', 'Patricia Holloway', 'p.holloway@riversidemedical.com', '205-555-0142', TRUE),
-  (1, 'SYN-C-002', 'Marcus Webb', 'm.webb@riversidemedical.com', '205-555-0198', FALSE),
+  ((SELECT id FROM customers WHERE synergy_id = 'SYN-001'), 'SYN-C-001', 'Patricia Holloway', 'p.holloway@riversidemedical.com', '205-555-0142', TRUE),
+  ((SELECT id FROM customers WHERE synergy_id = 'SYN-001'), 'SYN-C-002', 'Marcus Webb', 'm.webb@riversidemedical.com', '205-555-0198', FALSE),
   -- Southgate Office Complex
-  (2, 'SYN-C-003', 'Donna Fitch', 'donna.fitch@southgateoffice.com', '205-555-0361', TRUE),
-  (2, 'SYN-C-004', 'Ray Callahan', 'r.callahan@southgateoffice.com', '205-555-0277', FALSE),
+  ((SELECT id FROM customers WHERE synergy_id = 'SYN-002'), 'SYN-C-003', 'Donna Fitch', 'donna.fitch@southgateoffice.com', '205-555-0361', TRUE),
+  ((SELECT id FROM customers WHERE synergy_id = 'SYN-002'), 'SYN-C-004', 'Ray Callahan', 'r.callahan@southgateoffice.com', '205-555-0277', FALSE),
   -- Tuscaloosa Public Schools
-  (3, 'SYN-C-005', 'Angela Torres', 'a.torres@tuscaloosaschools.org', '205-555-0589', TRUE),
-  (3, 'SYN-C-006', 'Jerome Hicks', 'j.hicks@tuscaloosaschools.org', '205-555-0614', FALSE);
+  ((SELECT id FROM customers WHERE synergy_id = 'SYN-003'), 'SYN-C-005', 'Angela Torres', 'a.torres@tuscaloosaschools.org', '205-555-0589', TRUE),
+  ((SELECT id FROM customers WHERE synergy_id = 'SYN-003'), 'SYN-C-006', 'Jerome Hicks', 'j.hicks@tuscaloosaschools.org', '205-555-0614', FALSE);
 
 -- ============================================================
 -- PRODUCTS (synced from Synergy)
@@ -77,19 +76,22 @@ VALUES
 INSERT INTO equipment (id, customer_id, default_technician_id, make, model, serial_number, description, location_on_site, active)
 VALUES
   ('aaaa0000-0000-0000-0000-000000000001',
-   1, '00000000-0000-0000-0000-000000000003',
+   (SELECT id FROM customers WHERE synergy_id = 'SYN-001'),
+   '00000000-0000-0000-0000-000000000003',
    'Tennant', 'T7', 'T7-2021-88321',
    'Rider floor scrubber — 28 inch deck',
    'Basement loading dock utility hall',
    TRUE),
   ('aaaa0000-0000-0000-0000-000000000002',
-   2, '00000000-0000-0000-0000-000000000003',
+   (SELECT id FROM customers WHERE synergy_id = 'SYN-002'),
+   '00000000-0000-0000-0000-000000000003',
    'Nilfisk', 'SC500', 'NIL-SC500-44017',
    'Walk-behind auto scrubber',
    'Main lobby janitorial closet',
    TRUE),
   ('aaaa0000-0000-0000-0000-000000000003',
-   3, '00000000-0000-0000-0000-000000000003',
+   (SELECT id FROM customers WHERE synergy_id = 'SYN-003'),
+   '00000000-0000-0000-0000-000000000003',
    'Advance', 'Advenger 2800', 'ADV-28-67203',
    'Rider sweeper/scrubber combo for gymnasium floors',
    'Gymnasium equipment bay — Building C',
@@ -102,10 +104,10 @@ VALUES
 INSERT INTO pm_schedules (id, equipment_id, frequency, billing_type, flat_rate, active)
 VALUES
   ('bbbb0000-0000-0000-0000-000000000001',
-   'aaaa0000-0000-0000-0000-000000000001',
+   (SELECT id FROM equipment WHERE serial_number = 'T7-2021-88321'),
    'monthly', 'flat_rate', 225.00, TRUE),
   ('bbbb0000-0000-0000-0000-000000000002',
-   'aaaa0000-0000-0000-0000-000000000002',
+   (SELECT id FROM equipment WHERE serial_number = 'NIL-SC500-44017'),
    'quarterly', 'time_and_materials', NULL, TRUE);
 
 -- ============================================================
@@ -122,8 +124,8 @@ VALUES
   -- Completed and billed — January
   ('cccc0000-0000-0000-0000-000000000001',
    'bbbb0000-0000-0000-0000-000000000001',
-   'aaaa0000-0000-0000-0000-000000000001',
-   1,
+   (SELECT id FROM equipment WHERE serial_number = 'T7-2021-88321'),
+   (SELECT id FROM customers WHERE synergy_id = 'SYN-001'),
    '00000000-0000-0000-0000-000000000003',
    '00000000-0000-0000-0000-000000000002',
    1, 2026, 'billed',
@@ -136,8 +138,8 @@ VALUES
   -- Completed, not yet billed — February
   ('cccc0000-0000-0000-0000-000000000002',
    'bbbb0000-0000-0000-0000-000000000001',
-   'aaaa0000-0000-0000-0000-000000000001',
-   1,
+   (SELECT id FROM equipment WHERE serial_number = 'T7-2021-88321'),
+   (SELECT id FROM customers WHERE synergy_id = 'SYN-001'),
    '00000000-0000-0000-0000-000000000003',
    '00000000-0000-0000-0000-000000000002',
    2, 2026, 'completed',
@@ -150,8 +152,8 @@ VALUES
   -- In progress — March
   ('cccc0000-0000-0000-0000-000000000003',
    'bbbb0000-0000-0000-0000-000000000001',
-   'aaaa0000-0000-0000-0000-000000000001',
-   1,
+   (SELECT id FROM equipment WHERE serial_number = 'T7-2021-88321'),
+   (SELECT id FROM customers WHERE synergy_id = 'SYN-001'),
    '00000000-0000-0000-0000-000000000003',
    '00000000-0000-0000-0000-000000000002',
    3, 2026, 'in_progress',
@@ -161,8 +163,8 @@ VALUES
   -- Unassigned — Q1 quarterly ticket
   ('cccc0000-0000-0000-0000-000000000004',
    'bbbb0000-0000-0000-0000-000000000002',
-   'aaaa0000-0000-0000-0000-000000000002',
-   2,
+   (SELECT id FROM equipment WHERE serial_number = 'NIL-SC500-44017'),
+   (SELECT id FROM customers WHERE synergy_id = 'SYN-002'),
    NULL,
    '00000000-0000-0000-0000-000000000002',
    1, 2026, 'unassigned',

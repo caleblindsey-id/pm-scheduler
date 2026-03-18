@@ -71,7 +71,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 The nightly Synergy sync script pulls customer, contact, and product data from Synergy ERP into Supabase.
 
-See [`scripts/sync/README.md`](scripts/sync/README.md) for setup and scheduling instructions.
+See Phase 4 of the implementation plan — the sync script and its README are built in a later phase.
 
 ## Deployment (Vercel)
 
@@ -81,6 +81,11 @@ See [`scripts/sync/README.md`](scripts/sync/README.md) for setup and scheduling 
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
+
+> ⚠️ **Security note:** `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security entirely.
+> It is only used in server-side API routes and the nightly sync script. Never expose it
+> in client-side code or as a `NEXT_PUBLIC_` variable.
+
 4. Deploy. Vercel handles builds and deploys automatically on every push to `main`.
 
 ## Project Structure

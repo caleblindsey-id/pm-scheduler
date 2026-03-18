@@ -9,6 +9,10 @@ ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 
+-- NOTE: The nightly sync script (scripts/sync/synergy-sync.py) uses the Supabase SERVICE ROLE KEY,
+-- which bypasses RLS entirely. This is intentional — the sync script writes to customers, contacts,
+-- products, and sync_log as a trusted backend process. Never expose the service role key client-side.
+
 -- Helper: get the current user's role from our users table
 CREATE OR REPLACE FUNCTION get_user_role()
 RETURNS TEXT AS $$
