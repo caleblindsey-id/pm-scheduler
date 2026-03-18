@@ -217,7 +217,7 @@ def discover_tables(conn) -> set[str]:
     cursor = conn.cursor()
     cursor.execute("SHOW TABLES")
     tables = {row[0].lower() for row in cursor.fetchall()}
-    log.debug(f"Discovered ERP tables: {sorted(tables)}")
+    log.info(f"Discovered ERP tables: {sorted(tables)}")
     return tables
 
 
@@ -434,7 +434,7 @@ def sync_contacts(conn, known_tables: set[str]) -> int:
 
 def fetch_customer_synergy_id_map() -> dict[str, int]:
     """Fetch all customers from Supabase and return a dict of synergy_id -> id."""
-    url = f"{SUPABASE_URL}/rest/v1/customers?select=id,synergy_id&limit=10000"
+    url = f"{SUPABASE_URL}/rest/v1/customers?select=id,synergy_id&limit=50000"
     headers = {
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",

@@ -78,7 +78,7 @@ export default function BillingExport({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `PM-Billing-${month}-${year}.pdf`
+      a.download = `PM-Billing-${MONTHS[month - 1]}-${year}.pdf`
       a.click()
       URL.revokeObjectURL(url)
 
