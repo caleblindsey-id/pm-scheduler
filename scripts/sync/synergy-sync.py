@@ -107,9 +107,11 @@ def supabase_headers() -> dict:
     }
 
 
-def supabase_upsert(table: str, records: list[dict]) -> int:
+def supabase_upsert(table: str, records: list[dict], on_conflict: str | None = "synergy_id") -> int:
     """POST a batch of records to Supabase with upsert semantics. Returns count upserted."""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
+    if on_conflict:
+        url += f"?on_conflict={on_conflict}"
     response = requests.post(url, json=records, headers=supabase_headers(), timeout=60)
     if not response.ok:
         raise RuntimeError(
@@ -118,7 +120,7 @@ def supabase_upsert(table: str, records: list[dict]) -> int:
     return len(records)
 
 
-def upsert_in_batches(records: list[dict], table: str) -> int:
+def upsert_in_batches(records: list[dict], table: str, on_conflict: str | None = "synergy_id") -> int:
     """Upsert records in batches of BATCH_SIZE. Returns total count upserted."""
     if not records:
         log.info(f"  No records to upsert for table '{table}'.")
@@ -127,7 +129,7 @@ def upsert_in_batches(records: list[dict], table: str) -> int:
     total = 0
     for i in range(0, len(records), BATCH_SIZE):
         batch = records[i : i + BATCH_SIZE]
-        count = supabase_upsert(table, batch)
+        count = supabase_upsert(table, batch, on_conflict=on_conflict)
         total += count
         log.debug(f"  Upserted batch {i // BATCH_SIZE + 1} ({len(batch)} records) to '{table}'.")
 
@@ -229,23 +231,14 @@ def sync_customers(conn) -> int:
     log.info("--- Syncing customers ---")
     cursor = conn.cursor()
 
-    # Try with Active filter first; if column doesn't exist fall back to no filter
-    try:
-        cursor.execute("""
-            SELECT CustNo, Name, ARTerms, CreditHold,
-                   BillAddr1, BillAddr2, BillCity, BillState, BillZip
-            FROM cust
-            WHERE Active = 'Y'
-            ORDER BY CustNo
-        """)
-    except Exception:
-        log.debug("'Active' column not found on cust — querying all rows.")
-        cursor.execute("""
-            SELECT CustNo, Name, ARTerms, CreditHold,
-                   BillAddr1, BillAddr2, BillCity, BillState, BillZip
-            FROM cust
-            ORDER BY CustNo
-        """)
+    # Synergy cust table uses CustomerCode (int) as the customer number.
+    # SCStatus: 0 = normal, 1 = credit hold. No Active column — sync all.
+    cursor.execute("""
+        SELECT CustomerCode, Name, Terms, SCStatus,
+               Addr1, Addr2, City, State, Zip4
+        FROM cust
+        ORDER BY CustomerCode
+    """)
 
     rows = cursor.fetchall()
     log.info(f"  Fetched {len(rows)} customer rows from Synergy.")
@@ -253,14 +246,14 @@ def sync_customers(conn) -> int:
     customers = []
     for row in rows:
         billing_address = build_address(
-            row.BillAddr1, row.BillAddr2, row.BillCity, row.BillState, row.BillZip
+            row.Addr1, row.Addr2, row.City, row.State, row.Zip4
         )
         customers.append({
-            "synergy_id": str(row.CustNo).strip(),
+            "synergy_id": str(row.CustomerCode).strip(),
             "name": str(row.Name).strip(),
-            "account_number": str(row.CustNo).strip(),  # CustNo doubles as account number
-            "ar_terms": safe_str(row.ARTerms),
-            "credit_hold": (safe_str(row.CreditHold) or "N").upper() == "Y",
+            "account_number": str(row.CustomerCode).strip(),
+            "ar_terms": str(row.Terms) if row.Terms is not None else None,
+            "credit_hold": row.SCStatus == 1,
             "billing_address": billing_address,
             "synced_at": utcnow_iso(),
         })
@@ -280,9 +273,9 @@ def sync_products(conn) -> int:
 
     try:
         cursor.execute("""
-            SELECT ProdNo, Desc1, SellPrice
+            SELECT ProdCode, Desc1, ListPrice1
             FROM prod
-            ORDER BY ProdNo
+            ORDER BY ProdCode
         """)
     except Exception as e:
         log.warning(f"  Could not query 'prod' table: {e}. Skipping products sync.")
@@ -294,10 +287,10 @@ def sync_products(conn) -> int:
     products = []
     for row in rows:
         products.append({
-            "synergy_id": str(row.ProdNo).strip(),
-            "number": str(row.ProdNo).strip(),
+            "synergy_id": str(row.ProdCode).strip(),
+            "number": str(row.ProdCode).strip(),
             "description": safe_str(row.Desc1),
-            "unit_price": float(row.SellPrice) if row.SellPrice is not None else None,
+            "unit_price": float(row.ListPrice1) if row.ListPrice1 is not None else None,
             "synced_at": utcnow_iso(),
         })
 
@@ -310,124 +303,88 @@ def sync_products(conn) -> int:
 # Sync: Contacts
 # ============================================================
 
-CONTACT_TABLE_CANDIDATES = ["cust_cont", "custcont", "contacts", "contact", "cust_contacts"]
-
-
 def sync_contacts(conn, known_tables: set[str]) -> int:
     log.info("--- Syncing contacts ---")
 
-    # Find the right table name
-    contact_table = None
-    for candidate in CONTACT_TABLE_CANDIDATES:
-        if candidate in known_tables:
-            contact_table = candidate
-            break
-
-    if contact_table is None:
-        log.info(
-            f"  No contact table found in Synergy (tried: {', '.join(CONTACT_TABLE_CANDIDATES)}). "
-            "Skipping contacts sync."
-        )
+    # Synergy stores contacts in 'contlist': CustCode (int), Contact (int id),
+    # FirstName, LastName, Email, Phone (int).
+    if "contlist" not in known_tables:
+        log.info("  'contlist' table not found. Skipping contacts sync.")
         return 0
 
-    log.debug(f"  Using contact table: '{contact_table}'")
-
-    # Discover columns in the contact table
     cursor = conn.cursor()
     try:
-        cursor.execute(f"SHOW COLUMNS FROM {contact_table}")
-        columns = {row[0].lower() for row in cursor.fetchall()}
-        log.debug(f"  Contact table columns: {sorted(columns)}")
-    except Exception as e:
-        log.warning(f"  Could not inspect contact table columns: {e}. Skipping contacts sync.")
-        return 0
-
-    # Build query based on available columns
-    col_map = {
-        "custno": next((c for c in columns if c in ("custno", "cust_no", "customerid")), None),
-        "name": next((c for c in columns if c in ("name", "contactname", "contact_name", "fullname")), None),
-        "email": next((c for c in columns if c in ("email", "emailaddress", "email_address")), None),
-        "phone": next((c for c in columns if c in ("phone", "phoneno", "phone_no", "telephone")), None),
-        "synergy_id": next((c for c in columns if c in ("contno", "cont_no", "contactid", "contact_id", "id")), None),
-        "is_primary": next((c for c in columns if c in ("primary", "isprimary", "is_primary", "primarycontact")), None),
-    }
-
-    log.debug(f"  Column mapping: {col_map}")
-
-    # We need at least a customer reference to link contacts
-    if col_map["custno"] is None:
-        log.warning(
-            f"  Could not identify a customer foreign key column in '{contact_table}'. "
-            "Skipping contacts sync."
-        )
-        return 0
-
-    # Build SELECT dynamically based on what's available
-    select_cols = [col_map["custno"]]
-    if col_map["synergy_id"]:
-        select_cols.append(col_map["synergy_id"])
-    if col_map["name"]:
-        select_cols.append(col_map["name"])
-    if col_map["email"]:
-        select_cols.append(col_map["email"])
-    if col_map["phone"]:
-        select_cols.append(col_map["phone"])
-    if col_map["is_primary"]:
-        select_cols.append(col_map["is_primary"])
-
-    sql = f"SELECT {', '.join(select_cols)} FROM {contact_table} ORDER BY {col_map['custno']}"
-    log.debug(f"  Contact query: {sql}")
-
-    try:
-        cursor.execute(sql)
+        cursor.execute("""
+            SELECT CustCode, Contact, FirstName, LastName, Email, Phone
+            FROM contlist
+            ORDER BY CustCode, Contact
+        """)
         rows = cursor.fetchall()
     except Exception as e:
-        log.warning(f"  Failed to query contact table: {e}. Skipping contacts sync.")
+        log.warning(f"  Failed to query 'contlist': {e}. Skipping contacts sync.")
         return 0
 
     log.info(f"  Fetched {len(rows)} contact rows from Synergy.")
 
-    # We need customer synergy_id → Supabase customer.id mapping
-    # Fetch all customers from Supabase to build the map
     cust_map = fetch_customer_synergy_id_map()
 
     contacts = []
     skipped = 0
     for row in rows:
-        row_dict = dict(zip(select_cols, row))
-        cust_no = safe_str(row_dict.get(col_map["custno"]))
-        customer_id = cust_map.get(cust_no) if cust_no else None
-
+        customer_id = cust_map.get(str(row.CustCode)) if row.CustCode is not None else None
         if customer_id is None:
             skipped += 1
             continue
 
-        synergy_id = safe_str(row_dict.get(col_map["synergy_id"])) if col_map["synergy_id"] else None
-        name = safe_str(row_dict.get(col_map["name"])) if col_map["name"] else None
-        email = safe_str(row_dict.get(col_map["email"])) if col_map["email"] else None
-        phone = safe_str(row_dict.get(col_map["phone"])) if col_map["phone"] else None
-        is_primary_raw = row_dict.get(col_map["is_primary"]) if col_map["is_primary"] else None
-        is_primary = (safe_str(is_primary_raw) or "N").upper() == "Y" if is_primary_raw is not None else False
+        # Build full name from first + last
+        first = safe_str(row.FirstName)
+        last = safe_str(row.LastName)
+        name = " ".join(p for p in [first, last] if p) or None
+
+        # Phone stored as int — convert to string, skip zeros
+        phone_raw = row.Phone
+        phone = str(phone_raw).strip() if phone_raw and int(phone_raw) != 0 else None
+
+        # synergy_id is composite (CustCode-Contact) because Contact is per-customer sequence
+        synergy_id = f"{row.CustCode}-{row.Contact}" if row.Contact is not None else None
 
         contacts.append({
             "customer_id": customer_id,
             "synergy_id": synergy_id,
             "name": name,
-            "email": email,
+            "email": safe_str(row.Email),
             "phone": phone,
-            "is_primary": is_primary,
+            "is_primary": False,
         })
 
     if skipped:
         log.debug(f"  Skipped {skipped} contacts with no matching customer in Supabase.")
 
-    # Contacts upsert: if synergy_id is present, use it; otherwise skip upsert (no conflict key)
-    upsertable = [c for c in contacts if c.get("synergy_id")]
-    non_upsertable = len(contacts) - len(upsertable)
-    if non_upsertable:
-        log.debug(f"  {non_upsertable} contacts have no synergy_id — skipping (cannot upsert without conflict key).")
+    # Deduplicate on synergy_id (some ERP rows have duplicate CustCode+Contact)
+    seen: set[str] = set()
+    insertable = []
+    for c in contacts:
+        sid = c.get("synergy_id")
+        if sid and sid not in seen:
+            seen.add(sid)
+            insertable.append(c)
 
-    count = upsert_in_batches(upsertable, "contacts")
+    # contacts.synergy_id has a unique index but not a named constraint,
+    # so PostgREST on_conflict doesn't work. Truncate and re-insert each sync.
+    if insertable:
+        try:
+            del_url = f"{SUPABASE_URL}/rest/v1/contacts?id=gte.0"
+            del_headers = {
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Prefer": "return=minimal",
+            }
+            requests.delete(del_url, headers=del_headers, timeout=30)
+            log.debug("  Cleared existing contacts before re-insert.")
+        except Exception as e:
+            log.warning(f"  Could not clear contacts: {e}")
+
+    count = upsert_in_batches(insertable, "contacts", on_conflict=None)
     log.info(f"  Contacts synced: {count}")
     return count
 

@@ -21,8 +21,8 @@ if (-not (Test-Path $logsDir)) {
 # Edit these values, or set them as Windows System Environment
 # Variables and remove these two lines.
 # ----------------------------------------------------------------
-$env:SUPABASE_URL              = "https://YOUR_PROJECT_ID.supabase.co"
-$env:SUPABASE_SERVICE_ROLE_KEY = "YOUR_SERVICE_ROLE_KEY"
+$env:SUPABASE_URL              = "https://haohkybnmnpuxpiykjvb.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhb2hreWJubW5wdXhwaXlranZiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Mzg2MjA1NywiZXhwIjoyMDg5NDM4MDU3fQ.uw_t_dKzlQPctD3yS2M6qgHSr9FjHHzMvRzMb61OXOM"
 
 # ----------------------------------------------------------------
 # Run the sync script
