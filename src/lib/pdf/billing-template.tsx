@@ -26,6 +26,8 @@ interface BillingTicket {
   completionNotes: string | null
   partsUsed: PartLine[]
   billingAmount: number | null
+  billingType: string | null
+  flatRate: number | null
 }
 
 interface BillingDocumentProps {
@@ -223,6 +225,7 @@ function dash(value: string | null | undefined): string {
 // ============================================================
 
 function TicketSection({ ticket }: { ticket: BillingTicket }) {
+  const isFlatRate = ticket.billingType === 'flat_rate' && ticket.flatRate != null
   const partsTotal = ticket.partsUsed.reduce(
     (sum, p) => sum + p.quantity * p.unit_price,
     0
@@ -285,7 +288,9 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
       </View>
 
       {/* PARTS & MATERIALS */}
-      <Text style={styles.sectionLabel}>Parts &amp; Materials</Text>
+      <Text style={styles.sectionLabel}>
+        {isFlatRate ? 'Additional Parts & Materials' : 'Parts & Materials'}
+      </Text>
       <View style={styles.table}>
         <View style={styles.tableHeaderRow}>
           <Text style={[styles.colDescription, styles.tableHeaderText]}>Description</Text>
@@ -294,7 +299,9 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
           <Text style={[styles.colTotal, styles.tableHeaderText]}>Total</Text>
         </View>
         {ticket.partsUsed.length === 0 ? (
-          <Text style={styles.noPartsText}>No parts used</Text>
+          <Text style={styles.noPartsText}>
+            {isFlatRate ? 'No additional parts' : 'No parts used'}
+          </Text>
         ) : (
           ticket.partsUsed.map((part, idx) => (
             <View key={idx} style={styles.tableRow}>
@@ -309,16 +316,39 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
 
       {/* BILLING SUMMARY */}
       <View style={styles.summaryBlock}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>
-            Labor ({ticket.hoursWorked != null ? `${ticket.hoursWorked} hrs` : '—'}):
-          </Text>
-          <Text style={styles.summaryValue}>—</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Parts Total:</Text>
-          <Text style={styles.summaryValue}>{fmt(partsTotal)}</Text>
-        </View>
+        {isFlatRate ? (
+          <>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>PM Service (Flat Rate):</Text>
+              <Text style={styles.summaryValue}>{fmt(ticket.flatRate!)}</Text>
+            </View>
+            {partsTotal > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Additional Parts:</Text>
+                <Text style={styles.summaryValue}>{fmt(partsTotal)}</Text>
+              </View>
+            )}
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>
+                Additional Labor ({ticket.hoursWorked != null ? `${ticket.hoursWorked} hrs` : '—'}):
+              </Text>
+              <Text style={styles.summaryValue}>—</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>
+                Labor ({ticket.hoursWorked != null ? `${ticket.hoursWorked} hrs` : '—'}):
+              </Text>
+              <Text style={styles.summaryValue}>—</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Parts Total:</Text>
+              <Text style={styles.summaryValue}>{fmt(partsTotal)}</Text>
+            </View>
+          </>
+        )}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>TOTAL AMOUNT DUE:</Text>
           <Text style={styles.totalValue}>

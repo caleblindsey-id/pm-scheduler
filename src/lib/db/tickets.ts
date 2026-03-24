@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { PmTicketRow, PmTicketUpdate, TicketStatus, PartUsed } from '@/types/database'
+import { PmTicketRow, PmTicketUpdate, TicketStatus, PartUsed, BillingType } from '@/types/database'
 
 export type TicketWithJoins = PmTicketRow & {
   customers: { name: string } | null
@@ -12,6 +12,7 @@ export type TicketDetail = PmTicketRow & {
   equipment: { make: string | null; model: string | null; serial_number: string | null } | null
   assigned_technician: { name: string } | null
   created_by: { name: string } | null
+  schedule: { billing_type: BillingType | null; flat_rate: number | null } | null
 }
 
 export async function getTickets(filters?: {
@@ -69,7 +70,8 @@ export async function getTicket(id: string): Promise<TicketDetail | null> {
       customers(name, account_number),
       equipment(make, model, serial_number),
       assigned_technician:users!assigned_technician_id(name),
-      created_by:users!created_by_id(name)
+      created_by:users!created_by_id(name),
+      schedule:pm_schedules(billing_type, flat_rate)
     `)
     .eq('id', id)
     .single()

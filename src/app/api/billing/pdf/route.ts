@@ -31,6 +31,8 @@ interface BillingTicket {
   completionNotes: string | null
   partsUsed: PartLine[]
   billingAmount: number | null
+  billingType: string | null
+  flatRate: number | null
 }
 
 // Raw Supabase join shape
@@ -59,6 +61,7 @@ interface RawTicket {
     location_on_site: string | null
   } | null
   technician: { name: string } | null
+  pm_schedules: { billing_type: string | null; flat_rate: number | null } | null
 }
 
 // ============================================================
@@ -133,7 +136,8 @@ export async function POST(request: NextRequest) {
         billing_amount,
         customers(name, account_number, ar_terms, billing_address),
         equipment(make, model, serial_number, location_on_site),
-        technician:users!assigned_technician_id(name)
+        technician:users!assigned_technician_id(name),
+        pm_schedules(billing_type, flat_rate)
       `)
       .in('id', ticketIds as string[])
 
@@ -211,6 +215,8 @@ export async function POST(request: NextRequest) {
         completionNotes: raw.completion_notes,
         partsUsed,
         billingAmount: raw.billing_amount,
+        billingType: raw.pm_schedules?.billing_type ?? null,
+        flatRate: raw.pm_schedules?.flat_rate ?? null,
       }
     })
 

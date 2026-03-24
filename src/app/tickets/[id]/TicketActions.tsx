@@ -12,6 +12,11 @@ interface TicketActionsProps {
 export default function TicketActions({ ticket }: TicketActionsProps) {
   const router = useRouter()
   const pathname = usePathname()
+
+  const billingType = ticket.schedule?.billing_type ?? null
+  const flatRate = ticket.schedule?.flat_rate ?? null
+  const isFlatRate = billingType === 'flat_rate' && flatRate != null
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -21,7 +26,9 @@ export default function TicketActions({ ticket }: TicketActionsProps) {
   )
   const [hoursWorked, setHoursWorked] = useState('')
   const [completionNotes, setCompletionNotes] = useState('')
-  const [billingAmount, setBillingAmount] = useState('')
+  const [billingAmount, setBillingAmount] = useState(
+    isFlatRate && flatRate != null ? String(flatRate) : ''
+  )
   const [parts, setParts] = useState<
     { description: string; quantity: number; unitPrice: number }[]
   >([])
@@ -168,11 +175,19 @@ export default function TicketActions({ ticket }: TicketActionsProps) {
             />
           </div>
 
+          {/* Flat rate base — informational, shown above additional work */}
+          {isFlatRate && (
+            <div className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-md border border-blue-100">
+              <span className="text-sm font-medium text-blue-800">PM Service (Flat Rate)</span>
+              <span className="text-sm font-semibold text-blue-800">${flatRate!.toFixed(2)}</span>
+            </div>
+          )}
+
           {/* Parts */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-700">
-                Parts Used
+                {isFlatRate ? 'Additional Work (beyond PM agreement)' : 'Parts Used'}
               </label>
               <button
                 type="button"
@@ -259,11 +274,12 @@ export default function TicketActions({ ticket }: TicketActionsProps) {
               className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
               placeholder="0.00"
             />
-            {parts.length > 0 && (
+            {(parts.length > 0 || (isFlatRate && parseFloat(hoursWorked) > 0)) && (
               <p className="text-xs text-gray-500 mt-1">
-                Suggested (T&M): $
-                {(partsTotal + (parseFloat(hoursWorked) || 0) * 75).toFixed(2)}{' '}
-                (parts + $75/hr labor)
+                {isFlatRate
+                  ? `Suggested: $${(flatRate! + partsTotal + (parseFloat(hoursWorked) || 0) * 75).toFixed(2)} (flat rate + additional parts + $75/hr labor)`
+                  : `Suggested (T&M): $${(partsTotal + (parseFloat(hoursWorked) || 0) * 75).toFixed(2)} (parts + $75/hr labor)`
+                }
               </p>
             )}
           </div>
@@ -286,6 +302,12 @@ export default function TicketActions({ ticket }: TicketActionsProps) {
       <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
         Completion Details
       </h2>
+      {isFlatRate && flatRate != null && (
+        <div className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-md border border-blue-100 mb-4">
+          <span className="text-sm font-medium text-blue-800">PM Service (Flat Rate)</span>
+          <span className="text-sm font-semibold text-blue-800">${flatRate.toFixed(2)}</span>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
         <div>
           <span className="text-gray-500">Completed Date</span>
@@ -318,7 +340,9 @@ export default function TicketActions({ ticket }: TicketActionsProps) {
       </div>
       {ticket.parts_used && ticket.parts_used.length > 0 && (
         <div className="mt-4">
-          <span className="text-sm text-gray-500">Parts Used</span>
+          <span className="text-sm text-gray-500">
+            {isFlatRate ? 'Additional Work' : 'Parts Used'}
+          </span>
           <div className="mt-1 space-y-1">
             {ticket.parts_used.map((part, i) => (
               <div key={`${part.synergy_product_id ?? 'new'}-${i}`} className="text-sm text-gray-900">
