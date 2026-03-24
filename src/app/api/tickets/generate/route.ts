@@ -47,6 +47,17 @@ export async function POST(request: NextRequest) {
 
     const schedules = rawSchedules as (PmScheduleRow & { equipment: EquipmentRow | null })[]
 
+    // Fetch all existing tickets for this month/year in one query to avoid N+1
+    const { data: existingTickets, error: existingError } = await supabase
+      .from('pm_tickets')
+      .select('pm_schedule_id')
+      .eq('month', month)
+      .eq('year', year)
+    if (existingError) throw existingError
+    const existingScheduleIds = new Set(
+      (existingTickets ?? []).map(t => t.pm_schedule_id).filter(Boolean)
+    )
+
     const ticketsToCreate: PmTicketInsert[] = []
     let skipped = 0
 
@@ -56,20 +67,14 @@ export async function POST(request: NextRequest) {
       }
 
       const equipment = schedule.equipment as EquipmentRow | null
-      if (!equipment) continue
+      // Skip if no equipment or equipment is deactivated
+      if (!equipment || !equipment.active) {
+        skipped++
+        continue
+      }
 
-      // Check if a ticket already exists for this schedule+month+year
-      const { data: existing, error: existingError } = await supabase
-        .from('pm_tickets')
-        .select('id')
-        .eq('pm_schedule_id', schedule.id)
-        .eq('month', month)
-        .eq('year', year)
-        .maybeSingle()
-
-      if (existingError) throw existingError
-
-      if (existing) {
+      // Skip if a ticket already exists for this schedule+month+year
+      if (existingScheduleIds.has(schedule.id)) {
         skipped++
         continue
       }

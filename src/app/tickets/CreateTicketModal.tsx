@@ -252,7 +252,11 @@ export default function CreateTicketModal({ open, onClose }: CreateTicketModalPr
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-gray-50 disabled:text-gray-400"
               >
                 <option value="">
-                  {customerSelected ? 'Select equipment...' : 'Select a customer first'}
+                  {!customerSelected
+                    ? 'Select a customer first'
+                    : !equipmentLoaded
+                    ? 'Loading equipment...'
+                    : 'Select equipment...'}
                 </option>
                 {equipment.map((eq) => (
                   <option key={eq.id} value={eq.id}>

@@ -248,6 +248,8 @@ def sync_customers(conn) -> int:
 
     # SStop: 1 = normal, anything > 1 (e.g. 999) = credit hold / stop ship
     # artermcode JOIN provides human-readable payment terms description
+    # Exclude customers whose name contains "CLOSED" or "DO NOT USE" —
+    # these are inactive accounts in Synergy that should not appear in PM Scheduler.
     cursor.execute("""
         SELECT
             cust.CustomerCode,
@@ -262,11 +264,46 @@ def sync_customers(conn) -> int:
         FROM cust
         LEFT JOIN artermcode ON artermcode.xDL4RecNum = cust.Terms
         WHERE cust.CustomerCode > 0
+          AND UPPER(cust.Name) NOT LIKE '%CLOSED%'
+          AND UPPER(cust.Name) NOT LIKE '%DO NOT USE%'
         ORDER BY cust.CustomerCode
     """)
 
     rows = cursor.fetchall()
-    log.info(f"  Fetched {len(rows)} customer rows from Synergy.")
+    log.info(f"  Fetched {len(rows)} active customer rows from Synergy (inactive/closed filtered at query level).")
+
+    # ----------------------------------------------------------------
+    # ONE-TIME CLEANUP (commented out — run manually with caution)
+    # ----------------------------------------------------------------
+    # If you want to remove previously-synced closed/inactive customers
+    # from Supabase, uncomment the block below and run the script once.
+    #
+    # WARNING: This will DELETE customers whose name contains these
+    # patterns. Any equipment or PM tickets linked to those customers
+    # may become orphaned. Review the count in the log before running.
+    #
+    # def cleanup_inactive_customers():
+    #     patterns = ['*closed*', '*do not use*']
+    #     for pattern in patterns:
+    #         url = f"{SUPABASE_URL}/rest/v1/customers?name=ilike.{pattern}"
+    #         headers = {
+    #             "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    #             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    #             "Prefer": "return=representation",
+    #         }
+    #         # Dry run: count matches first
+    #         count_resp = requests.get(
+    #             url + "&select=id,name",
+    #             headers={**headers, "Prefer": "count=exact"},
+    #             timeout=30
+    #         )
+    #         count = int(count_resp.headers.get("content-range", "0/0").split("/")[-1])
+    #         log.info(f"  Cleanup preview: {count} customers matching '{pattern}'")
+    #         if count > 0:
+    #             del_resp = requests.delete(url, headers=headers, timeout=30)
+    #             log.info(f"  Deleted {count} customers matching '{pattern}': {del_resp.status_code}")
+    # cleanup_inactive_customers()
+    # ----------------------------------------------------------------
 
     customers = []
     for row in rows:

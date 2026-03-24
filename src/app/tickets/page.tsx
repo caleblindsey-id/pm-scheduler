@@ -19,14 +19,20 @@ export default async function TicketsPage({
 
   let tickets: Awaited<ReturnType<typeof getTickets>> = []
   let users: Awaited<ReturnType<typeof getUsers>> = []
+  let fetchError = false
   try {
     ;[tickets, users] = await Promise.all([getTickets(filters), getUsers(true)])
   } catch {
-    // Tables may not exist yet or Supabase is unreachable — render empty board
+    fetchError = true
   }
 
   return (
     <div className="p-6 space-y-6">
+      {fetchError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3 text-sm">
+          Unable to load tickets. Check your connection and refresh the page.
+        </div>
+      )}
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Tickets</h1>
         <p className="text-sm text-gray-500 mt-1">
