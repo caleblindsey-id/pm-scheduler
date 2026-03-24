@@ -3,6 +3,7 @@ import React from 'react'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { BillingDocument } from '@/lib/pdf/billing-template'
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/db/users'
 
 // ============================================================
 // Types
@@ -108,8 +109,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // --- Fetch ticket data from Supabase ---
+    // --- Verify auth and role ---
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const dbUser = await getUser(user.id)
+    if (!dbUser || (dbUser.role !== 'manager' && dbUser.role !== 'coordinator')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // --- Fetch ticket data from Supabase ---
 
     const { data: rawTickets, error: ticketsError } = await supabase
       .from('pm_tickets')
@@ -203,6 +214,22 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // --- Mark tickets as exported BEFORE rendering ---
+    // This ensures the database is consistent even if PDF rendering fails.
+    // Marking first prevents duplicate exports if the client retries.
+    const { error: updateError } = await supabase
+      .from('pm_tickets')
+      .update({ billing_exported: true, status: 'billed' })
+      .in('id', ticketIds as string[])
+
+    if (updateError) {
+      console.error('[billing/pdf] Failed to mark tickets as exported:', updateError)
+      return NextResponse.json(
+        { error: 'Failed to mark tickets as exported. No PDF was generated.' },
+        { status: 500 }
+      )
+    }
+
     // --- Render PDF ---
     const exportedAt = new Date().toLocaleString('en-US', {
       year: 'numeric',
@@ -227,17 +254,6 @@ export async function POST(request: NextRequest) {
     } catch (renderErr) {
       console.error('[billing/pdf] renderToBuffer error:', renderErr)
       return NextResponse.json({ error: 'Failed to render PDF' }, { status: 500 })
-    }
-
-    // --- Mark tickets as exported ---
-    const { error: updateError } = await supabase
-      .from('pm_tickets')
-      .update({ billing_exported: true, status: 'billed' })
-      .in('id', ticketIds as string[])
-
-    if (updateError) {
-      // Log but don't fail — the PDF was generated; the coordinator can retry the mark
-      console.error('[billing/pdf] Failed to mark tickets as exported:', updateError)
     }
 
     // --- Return PDF ---

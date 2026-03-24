@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { PmTicketRow, PmTicketInsert, PmScheduleRow, EquipmentRow, TicketStatus } from '@/types/database'
+import { getUser } from '@/lib/db/users'
 
 function scheduleMatchesMonth(schedule: PmScheduleRow, month: number): boolean {
   const { interval_months, anchor_month } = schedule
@@ -29,6 +30,12 @@ export async function POST(request: NextRequest) {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError) throw userError
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const dbUser = await getUser(user.id)
+    if (!dbUser || (dbUser.role !== 'manager' && dbUser.role !== 'coordinator')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Fetch all active schedules with their equipment
     const { data: rawSchedules, error: schedulesError } = await supabase
