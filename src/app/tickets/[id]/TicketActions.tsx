@@ -261,7 +261,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
         <button
           onClick={handleStart}
           disabled={loading}
-          className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors min-h-[44px]"
         >
           {loading ? 'Starting...' : 'Start Work'}
         </button>
@@ -324,7 +324,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
               <button
                 type="button"
                 onClick={addPart}
-                className="text-xs font-medium text-slate-700 hover:text-slate-900"
+                className="text-xs font-medium text-slate-700 hover:text-slate-900 py-2 sm:py-0 min-h-[44px] sm:min-h-0 flex items-center"
               >
                 + Add Part
               </button>
@@ -332,19 +332,19 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
             {parts.length > 0 && (
               <div className="space-y-2">
                 {parts.map((part, i) => (
-                  <div key={`new-part-${i}`} className="flex items-start gap-2">
+                  <div key={`new-part-${i}`} className="rounded-md border border-gray-200 p-3 space-y-2 sm:border-0 sm:p-0 sm:space-y-0 sm:flex sm:items-start sm:gap-2">
                     {/* Description with product search */}
                     <div
-                      className="flex-1 relative"
+                      className="relative sm:flex-1"
                       ref={(el) => { comboRefs.current.set(i, el) }}
                     >
                       {part.isFromDb ? (
-                        <div className="flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-3 py-1.5 text-sm text-gray-900">
+                        <div className="flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-3 py-2.5 sm:py-1.5 text-sm text-gray-900">
                           <span className="flex-1 truncate">{part.description}</span>
                           <button
                             type="button"
                             onClick={() => clearProduct(i)}
-                            className="text-gray-400 hover:text-red-500 shrink-0"
+                            className="text-gray-400 hover:text-red-500 shrink-0 p-1"
                           >
                             &times;
                           </button>
@@ -355,7 +355,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                           placeholder="Search products or type description..."
                           value={part.description}
                           onChange={(e) => handlePartDescriptionChange(i, e.target.value)}
-                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                          className="w-full rounded-md border border-gray-300 px-3 py-2.5 sm:py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
                         />
                       )}
                       {part.searchOpen && part.searchResults.length > 0 && (
@@ -365,12 +365,12 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                               key={product.id}
                               type="button"
                               onClick={() => selectProduct(i, product)}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                              className="w-full text-left px-3 py-3 sm:py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
                             >
                               <span className="font-medium text-gray-900">{product.number}</span>
                               <span className="text-gray-500"> — {product.description ?? ''}</span>
                               {product.unit_price != null && (
-                                <span className="text-green-700 float-right font-medium">
+                                <span className="text-green-700 sm:float-right font-medium block sm:inline mt-0.5 sm:mt-0">
                                   ${product.unit_price.toFixed(2)}
                                 </span>
                               )}
@@ -379,45 +379,54 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                         </div>
                       )}
                       {part.searchOpen && !part.searching && part.searchResults.length === 0 && part.description.trim() && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2 text-sm text-gray-500">
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2.5 text-sm text-gray-500">
                           No products found — enter details manually
                         </div>
                       )}
                       {part.searching && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2 text-sm text-gray-500">
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2.5 text-sm text-gray-500">
                           Searching...
                         </div>
                       )}
                     </div>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Qty"
-                      value={part.quantity}
-                      onChange={(e) => updatePartField(i, 'quantity', e.target.value)}
-                      className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Price"
-                      value={part.unitPrice}
-                      onChange={(e) => updatePartField(i, 'unitPrice', e.target.value)}
-                      readOnly={part.isFromDb}
-                      className={`w-24 rounded-md border px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500 ${
-                        part.isFromDb
-                          ? 'border-green-300 bg-green-50 cursor-not-allowed'
-                          : 'border-gray-300'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removePart(i)}
-                      className="text-gray-400 hover:text-red-500 text-sm mt-1"
-                    >
-                      Remove
-                    </button>
+                    {/* Qty + Price + Remove row */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 sm:flex-none">
+                        <label className="block text-xs text-gray-500 mb-0.5 sm:hidden">Qty</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty"
+                          value={part.quantity}
+                          onChange={(e) => updatePartField(i, 'quantity', e.target.value)}
+                          className="w-full sm:w-16 rounded-md border border-gray-300 px-2 py-2.5 sm:py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                        />
+                      </div>
+                      <div className="flex-1 sm:flex-none">
+                        <label className="block text-xs text-gray-500 mb-0.5 sm:hidden">Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Price"
+                          value={part.unitPrice}
+                          onChange={(e) => updatePartField(i, 'unitPrice', e.target.value)}
+                          readOnly={part.isFromDb}
+                          className={`w-full sm:w-24 rounded-md border px-2 py-2.5 sm:py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500 ${
+                            part.isFromDb
+                              ? 'border-green-300 bg-green-50 cursor-not-allowed'
+                              : 'border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removePart(i)}
+                        className="text-gray-400 hover:text-red-500 text-sm p-2 sm:p-0 sm:mt-1 min-h-[44px] sm:min-h-0 flex items-center"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
                 <p className="text-xs text-gray-500">
@@ -467,7 +476,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors min-h-[44px]"
           >
             {loading ? 'Completing...' : 'Mark Complete'}
           </button>

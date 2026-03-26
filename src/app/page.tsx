@@ -74,7 +74,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
         {statusCards.map((card) => {
           const Icon = card.icon
           return (
@@ -88,7 +88,7 @@ export default async function DashboardPage() {
                 </span>
                 <Icon className={`h-5 w-5 ${card.color}`} />
               </div>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">
+              <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
                 {counts[card.status]}
               </p>
             </div>

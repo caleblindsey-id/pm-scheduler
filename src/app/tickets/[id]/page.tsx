@@ -34,22 +34,24 @@ export default async function TicketDetailPage({
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/tickets"
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Ticket Detail
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {ticket.customers?.name ?? 'Unknown Customer'} — {equipmentLabel}
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/tickets"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 -m-2 rounded-md"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+              Ticket Detail
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5 truncate">
+              {ticket.customers?.name ?? 'Unknown Customer'} — {equipmentLabel}
+            </p>
+          </div>
         </div>
-        <div className="ml-auto">
+        <div className="pl-8 sm:pl-0 sm:ml-auto">
           <StatusBadge status={ticket.status} />
         </div>
       </div>
