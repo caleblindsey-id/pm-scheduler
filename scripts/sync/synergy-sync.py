@@ -318,6 +318,9 @@ def sync_customers(conn) -> int:
             "ar_terms": safe_str(row.TermsDescription),
             "credit_hold": (row.SStop is not None and int(row.SStop) > 1),
             "billing_address": billing_address,
+            "billing_city": safe_str(row.City),
+            "billing_state": safe_str(row.State),
+            "billing_zip": safe_str(row.Zip4),
             "po_required": bool(row.PORequiredFlag) if row.PORequiredFlag is not None else False,
             "synced_at": utcnow_iso(),
         })

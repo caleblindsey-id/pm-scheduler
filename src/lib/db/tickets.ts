@@ -2,13 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { PmTicketRow, PmTicketUpdate, TicketStatus, PartUsed, TicketPhoto, BillingType } from '@/types/database'
 
 export type TicketWithJoins = PmTicketRow & {
-  customers: { name: string } | null
+  customers: { name: string; billing_city: string | null } | null
   equipment: { make: string | null; model: string | null; ship_to_locations: { city: string | null } | null } | null
   users: { name: string } | null
 }
 
 export type TicketDetail = PmTicketRow & {
-  customers: { name: string; account_number: string | null } | null
+  customers: { name: string; account_number: string | null; billing_city: string | null } | null
   equipment: { make: string | null; model: string | null; serial_number: string | null; ship_to_locations: { city: string | null } | null } | null
   assigned_technician: { name: string } | null
   created_by: { name: string } | null
@@ -29,7 +29,7 @@ export async function getTickets(filters?: {
     .from('pm_tickets')
     .select(`
       *,
-      customers(name),
+      customers(name, billing_city),
       equipment(make, model, ship_to_locations(city)),
       users!assigned_technician_id(name)
     `)
@@ -72,7 +72,7 @@ export async function getTicket(id: string): Promise<TicketDetail | null> {
     .from('pm_tickets')
     .select(`
       *,
-      customers(name, account_number),
+      customers(name, account_number, billing_city),
       equipment(make, model, serial_number, ship_to_locations(city)),
       assigned_technician:users!assigned_technician_id(name),
       created_by:users!created_by_id(name),

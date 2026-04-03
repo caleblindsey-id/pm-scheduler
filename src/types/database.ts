@@ -23,6 +23,12 @@ export interface PartUsed {
   unit_price: number
 }
 
+export interface DefaultProduct {
+  synergy_product_id: number
+  quantity: number
+  description: string
+}
+
 export interface TicketPhoto {
   storage_path: string
   uploaded_at: string
@@ -42,6 +48,9 @@ export type CustomerRow = {
   ar_terms: string | null
   credit_hold: boolean
   billing_address: string | null
+  billing_city: string | null
+  billing_state: string | null
+  billing_zip: string | null
   po_required: boolean
   active: boolean
   synced_at: string | null
@@ -101,6 +110,7 @@ export type EquipmentRow = {
   serial_number: string | null
   description: string | null
   location_on_site: string | null
+  default_products: DefaultProduct[]
   active: boolean
   created_at: string
   updated_at: string
@@ -165,7 +175,7 @@ type MakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
 
 export type CustomerInsert = MakeOptional<
   Omit<CustomerRow, 'id'>,
-  'credit_hold' | 'synced_at' | 'account_number' | 'ar_terms' | 'billing_address' | 'po_required' | 'active'
+  'credit_hold' | 'synced_at' | 'account_number' | 'ar_terms' | 'billing_address' | 'billing_city' | 'billing_state' | 'billing_zip' | 'po_required' | 'active'
 >
 
 export type ContactInsert = MakeOptional<
@@ -185,7 +195,7 @@ export type UserInsert = MakeOptional<
 
 export type EquipmentInsert = MakeOptional<
   Omit<EquipmentRow, 'id' | 'created_at' | 'updated_at'>,
-  'active' | 'customer_id' | 'default_technician_id' | 'ship_to_location_id' | 'make' | 'model' | 'serial_number' | 'description' | 'location_on_site'
+  'active' | 'customer_id' | 'default_technician_id' | 'ship_to_location_id' | 'make' | 'model' | 'serial_number' | 'description' | 'location_on_site' | 'default_products'
 >
 
 export type PmScheduleInsert = MakeOptional<

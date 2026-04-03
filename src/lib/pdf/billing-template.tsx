@@ -15,6 +15,7 @@ interface BillingTicket {
   customerName: string
   accountNumber: string | null
   billingAddress: string | null
+  serviceLocation: string | null
   arTerms: string | null
   equipmentMake: string | null
   equipmentModel: string | null
@@ -296,6 +297,10 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
       <View style={styles.fieldRow}>
         <Text style={styles.fieldLabel}>Billing Address:</Text>
         <Text style={styles.fieldValue}>{dash(ticket.billingAddress)}</Text>
+      </View>
+      <View style={styles.fieldRow}>
+        <Text style={styles.fieldLabel}>Service Location:</Text>
+        <Text style={styles.fieldValue}>{dash(ticket.serviceLocation)}</Text>
       </View>
       {ticket.poRequired && (
         <View style={[styles.fieldRow, { marginTop: 4 }]}>

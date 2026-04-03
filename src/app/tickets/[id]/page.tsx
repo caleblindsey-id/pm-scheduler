@@ -87,7 +87,7 @@ export default async function TicketDetailPage({
           <div>
             <span className="text-gray-500">City</span>
             <p className="text-gray-900 font-medium">
-              {ticket.equipment?.ship_to_locations?.city ?? '—'}
+              {ticket.equipment?.ship_to_locations?.city ?? ticket.customers?.billing_city ?? '—'}
             </p>
           </div>
           <div>

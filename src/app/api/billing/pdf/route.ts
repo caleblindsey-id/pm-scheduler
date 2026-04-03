@@ -21,6 +21,7 @@ interface BillingTicket {
   customerName: string
   accountNumber: string | null
   billingAddress: string | null
+  serviceLocation: string | null
   arTerms: string | null
   equipmentMake: string | null
   equipmentModel: string | null
@@ -59,6 +60,9 @@ interface RawTicket {
     account_number: string | null
     ar_terms: string | null
     billing_address: string | null
+    billing_city: string | null
+    billing_state: string | null
+    billing_zip: string | null
     po_required: boolean
   } | null
   equipment: {
@@ -66,6 +70,12 @@ interface RawTicket {
     model: string | null
     serial_number: string | null
     location_on_site: string | null
+    ship_to_locations: {
+      address: string | null
+      city: string | null
+      state: string | null
+      zip: string | null
+    } | null
   } | null
   technician: { name: string } | null
   pm_schedules: { billing_type: string | null; flat_rate: number | null } | null
@@ -148,8 +158,8 @@ export async function POST(request: NextRequest) {
         customer_signature,
         customer_signature_name,
         photos,
-        customers(name, account_number, ar_terms, billing_address, po_required),
-        equipment(make, model, serial_number, location_on_site),
+        customers(name, account_number, ar_terms, billing_address, billing_city, billing_state, billing_zip, po_required),
+        equipment(make, model, serial_number, location_on_site, ship_to_locations(address, city, state, zip)),
         technician:users!assigned_technician_id(name),
         pm_schedules(billing_type, flat_rate)
       `)
@@ -225,11 +235,23 @@ export async function POST(request: NextRequest) {
           ? (technicianEntry[0]?.name ?? '—')
           : (technicianEntry?.name ?? '—')
 
+      // Build service location: prefer ship-to, fall back to customer billing address
+      const shipTo = raw.equipment?.ship_to_locations
+      let serviceLocation: string | null = null
+      if (shipTo && (shipTo.address || shipTo.city)) {
+        serviceLocation = [shipTo.address, shipTo.city, shipTo.state, shipTo.zip]
+          .filter(Boolean)
+          .join(', ')
+      } else {
+        serviceLocation = raw.customers?.billing_address ?? null
+      }
+
       return {
         id: raw.id,
         customerName: raw.customers?.name ?? '—',
         accountNumber: raw.customers?.account_number ?? null,
         billingAddress: raw.customers?.billing_address ?? null,
+        serviceLocation,
         arTerms: raw.customers?.ar_terms ?? null,
         equipmentMake: raw.equipment?.make ?? null,
         equipmentModel: raw.equipment?.model ?? null,

@@ -324,8 +324,8 @@ export default function TicketBoard({
                       ? new Date(ticket.scheduled_date).toLocaleDateString()
                       : '—'}{' '}
                     · Tech: {ticket.users?.name ?? '—'}
-                    {ticket.equipment?.ship_to_locations?.city && (
-                      <> · City: {ticket.equipment.ship_to_locations.city}</>
+                    {(ticket.equipment?.ship_to_locations?.city || ticket.customers?.billing_city) && (
+                      <> · City: {ticket.equipment?.ship_to_locations?.city ?? ticket.customers?.billing_city}</>
                     )}
                   </p>
                 </div>
@@ -390,7 +390,7 @@ export default function TicketBoard({
                           .join(' ') || '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {ticket.equipment?.ship_to_locations?.city ?? '—'}
+                        {ticket.equipment?.ship_to_locations?.city ?? ticket.customers?.billing_city ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {ticket.scheduled_date
