@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
       .select('pm_schedule_id, equipment_id')
       .eq('month', month)
       .eq('year', year)
-      .not('status', 'eq', 'billed')
     if (existingError) throw existingError
     const existingScheduleIds = new Set(
       (existingTickets ?? []).map(t => t.pm_schedule_id).filter(Boolean)
