@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { BillingType } from '@/types/database'
 import { X } from 'lucide-react'
 
 interface CustomerOption {
@@ -9,6 +10,31 @@ interface CustomerOption {
   name: string
   account_number: string | null
 }
+
+interface TechnicianOption {
+  id: string
+  name: string
+}
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+const INTERVAL_OPTIONS = [
+  { value: 1,  label: 'Every month' },
+  { value: 2,  label: 'Every 2 months' },
+  { value: 3,  label: 'Every 3 months' },
+  { value: 4,  label: 'Every 4 months' },
+  { value: 6,  label: 'Every 6 months' },
+  { value: 12, label: 'Once a year' },
+]
+
+const BILLING_TYPES: { value: BillingType; label: string }[] = [
+  { value: 'flat_rate', label: 'Flat Rate' },
+  { value: 'time_and_materials', label: 'Time & Materials' },
+  { value: 'contract', label: 'Contract' },
+]
 
 interface AddEquipmentModalProps {
   open: boolean
@@ -37,11 +63,36 @@ export default function AddEquipmentModal({
   const [shipToLocations, setShipToLocations] = useState<{id: number; name: string | null; city: string | null}[]>([])
   const [shipToLocationId, setShipToLocationId] = useState('')
 
+  // Equipment fields
   const [make, setMake] = useState('')
   const [model, setModel] = useState('')
   const [serialNumber, setSerialNumber] = useState('')
   const [description, setDescription] = useState('')
   const [locationOnSite, setLocationOnSite] = useState('')
+
+  // Default technician
+  const [technicians, setTechnicians] = useState<TechnicianOption[]>([])
+  const [defaultTechId, setDefaultTechId] = useState('')
+
+  // PM Schedule
+  const [addSchedule, setAddSchedule] = useState(false)
+  const [intervalMonths, setIntervalMonths] = useState(3)
+  const [anchorMonth, setAnchorMonth] = useState(1)
+  const [billingType, setBillingType] = useState<BillingType>('flat_rate')
+  const [flatRate, setFlatRate] = useState('')
+
+  // Fetch technicians on mount
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('users')
+      .select('id, name')
+      .eq('active', true)
+      .order('name')
+      .then(({ data }) => {
+        setTechnicians((data as TechnicianOption[]) ?? [])
+      })
+  }, [])
 
   // Debounced customer search
   useEffect(() => {
@@ -112,6 +163,12 @@ export default function AddEquipmentModal({
     setSerialNumber('')
     setDescription('')
     setLocationOnSite('')
+    setDefaultTechId('')
+    setAddSchedule(false)
+    setIntervalMonths(3)
+    setAnchorMonth(1)
+    setBillingType('flat_rate')
+    setFlatRate('')
     setError(null)
   }
 
@@ -121,21 +178,47 @@ export default function AddEquipmentModal({
     setError(null)
 
     const supabase = createClient()
-    const { error: insertError } = await supabase.from('equipment').insert({
-      customer_id: customerId ? parseInt(customerId) : null,
-      ship_to_location_id: shipToLocationId ? parseInt(shipToLocationId) : null,
-      make: make || null,
-      model: model || null,
-      serial_number: serialNumber || null,
-      description: description || null,
-      location_on_site: locationOnSite || null,
-      active: true,
-    })
+
+    // Step 1: Insert equipment
+    const { data: equipment, error: insertError } = await supabase
+      .from('equipment')
+      .insert({
+        customer_id: customerId ? parseInt(customerId) : null,
+        ship_to_location_id: shipToLocationId ? parseInt(shipToLocationId) : null,
+        default_technician_id: defaultTechId || null,
+        make: make || null,
+        model: model || null,
+        serial_number: serialNumber || null,
+        description: description || null,
+        location_on_site: locationOnSite || null,
+        active: true,
+      })
+      .select()
+      .single()
 
     if (insertError) {
       setError(insertError.message)
       setLoading(false)
       return
+    }
+
+    // Step 2: Insert PM schedule if toggled on
+    if (addSchedule && equipment) {
+      const { error: scheduleError } = await supabase.from('pm_schedules').insert({
+        equipment_id: equipment.id,
+        interval_months: intervalMonths,
+        anchor_month: anchorMonth,
+        billing_type: billingType,
+        flat_rate: billingType === 'flat_rate' ? parseFloat(flatRate) || null : null,
+        active: true,
+      })
+
+      if (scheduleError) {
+        setError(`Equipment created, but schedule failed: ${scheduleError.message}`)
+        setLoading(false)
+        onCreated()
+        return
+      }
     }
 
     resetForm()
@@ -153,7 +236,7 @@ export default function AddEquipmentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" aria-hidden="true" onClick={handleClose} />
-      <div className="relative bg-white rounded-lg shadow-lg border border-gray-200 p-6 max-w-lg w-full mx-4">
+      <div className="relative bg-white rounded-lg shadow-lg border border-gray-200 p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-gray-900">
             Add Equipment
@@ -288,6 +371,95 @@ export default function AddEquipmentModal({
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
             />
           </div>
+
+          {/* Default Technician */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Default Technician
+            </label>
+            <select
+              value={defaultTechId}
+              onChange={(e) => setDefaultTechId(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <option value="">None</option>
+              {technicians.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* PM Schedule toggle + fields */}
+          <div className="pt-2 border-t border-gray-200">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={addSchedule}
+                onChange={(e) => setAddSchedule(e.target.checked)}
+                className="rounded border-gray-300 text-slate-800 focus:ring-slate-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Add PM Schedule</span>
+            </label>
+
+            {addSchedule && (
+              <div className="mt-3 space-y-3 pl-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                  <select
+                    value={intervalMonths}
+                    onChange={(e) => setIntervalMonths(parseInt(e.target.value))}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  >
+                    {INTERVAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Starting Month
+                    <span className="text-gray-400 font-normal ml-1">(first month this PM runs)</span>
+                  </label>
+                  <select
+                    value={anchorMonth}
+                    onChange={(e) => setAnchorMonth(parseInt(e.target.value))}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  >
+                    {MONTHS.map((m, i) => (
+                      <option key={i + 1} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Billing Type</label>
+                  <select
+                    value={billingType}
+                    onChange={(e) => setBillingType(e.target.value as BillingType)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  >
+                    {BILLING_TYPES.map((b) => (
+                      <option key={b.value} value={b.value}>{b.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {billingType === 'flat_rate' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Flat Rate ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={flatRate}
+                      onChange={(e) => setFlatRate(e.target.value)}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
