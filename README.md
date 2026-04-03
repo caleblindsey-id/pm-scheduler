@@ -73,6 +73,19 @@ The nightly Synergy sync script pulls customer, contact, and product data from S
 
 See Phase 4 of the implementation plan — the sync script and its README are built in a later phase.
 
+## Development Workflow
+
+| Branch | Purpose | Vercel behavior |
+|--------|---------|-----------------|
+| `master` | Production | Auto-deploys to live site |
+| `dev` | Development / testing | Auto-deploys to a preview URL |
+
+1. All new work happens on `dev` (or feature branches off `dev`)
+2. Push to `dev` → Vercel builds a preview deployment at a unique URL
+3. Test the preview URL — it hits the same production database
+4. When satisfied, merge `dev` → `master` via PR
+5. Merge triggers production deployment
+
 ## Deployment (Vercel)
 
 1. Push the repo to GitHub.
@@ -86,7 +99,7 @@ See Phase 4 of the implementation plan — the sync script and its README are bu
 > It is only used in server-side API routes and the nightly sync script. Never expose it
 > in client-side code or as a `NEXT_PUBLIC_` variable.
 
-4. Deploy. Vercel handles builds and deploys automatically on every push to `main`.
+4. Deploy. Vercel handles builds and deploys automatically on every push to `master`.
 
 ## Project Structure
 
