@@ -598,14 +598,14 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
     )
   }
 
-  async function handleReopen() {
+  async function handleReopen(targetStatus: 'in_progress' | 'unassigned' = 'in_progress') {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/tickets/${ticket.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'in_progress' }),
+        body: JSON.stringify({ status: targetStatus }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -617,6 +617,30 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
     } finally {
       setLoading(false)
     }
+  }
+
+  // Skipped: show reopen option for managers
+  if (ticket.status === 'skipped') {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
+          Ticket Skipped
+        </h2>
+        <p className="text-sm text-gray-500">This ticket was skipped and no work was performed.</p>
+        {!isTech && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+            <button
+              onClick={() => handleReopen('unassigned')}
+              disabled={loading}
+              className="px-4 py-3 sm:py-2 text-sm font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors min-h-[44px]"
+            >
+              {loading ? 'Reopening...' : 'Reopen Ticket'}
+            </button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   // Completed or billed: read-only completion data

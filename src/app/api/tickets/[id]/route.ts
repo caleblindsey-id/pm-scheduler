@@ -27,7 +27,7 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   in_progress: ['completed'],
   completed:  ['billed', 'in_progress'],
   billed:     [],
-  skipped:    [],
+  skipped:    ['unassigned'],
 }
 
 export async function PATCH(
@@ -88,19 +88,26 @@ export async function PATCH(
         )
       }
 
-      // Reopening a completed ticket: only managers/coordinators, clear completion data
-      if (currentStatus === 'completed' && nextStatus === 'in_progress') {
+      // Reopening tickets: only managers/coordinators
+      const isReopen =
+        (currentStatus === 'completed' && nextStatus === 'in_progress') ||
+        (currentStatus === 'skipped' && nextStatus === 'unassigned')
+      if (isReopen) {
         if (isTechnician(user.role)) {
           return NextResponse.json({ error: 'Only managers can reopen tickets' }, { status: 403 })
         }
-        const updated = await updateTicket(id, {
-          status: 'in_progress',
-          completed_date: null,
-          completion_notes: null,
-          hours_worked: null,
-          parts_used: null,
-          billing_amount: null,
-        } as any)
+        // Completed tickets need completion data cleared; skipped just needs status change
+        const updateData = currentStatus === 'completed'
+          ? {
+              status: 'in_progress' as const,
+              completed_date: null,
+              completion_notes: null,
+              hours_worked: null,
+              parts_used: null,
+              billing_amount: null,
+            }
+          : { status: 'unassigned' as const }
+        const updated = await updateTicket(id, updateData as any)
         return NextResponse.json(updated)
       }
     }
