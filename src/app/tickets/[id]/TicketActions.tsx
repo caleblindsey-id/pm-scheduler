@@ -598,6 +598,27 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
     )
   }
 
+  async function handleReopen() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to reopen ticket')
+      }
+      router.push(pathname)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Completed or billed: read-only completion data
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
@@ -661,6 +682,18 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
           <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">
             {ticket.completion_notes}
           </p>
+        </div>
+      )}
+      {ticket.status === 'completed' && !isTech && (
+        <div className="mt-5 pt-4 border-t border-gray-200">
+          {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+          <button
+            onClick={handleReopen}
+            disabled={loading}
+            className="px-4 py-3 sm:py-2 text-sm font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors min-h-[44px]"
+          >
+            {loading ? 'Reopening...' : 'Reopen Ticket'}
+          </button>
         </div>
       )}
     </div>

@@ -25,7 +25,7 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   unassigned: ['assigned', 'in_progress', 'skipped'],
   assigned:   ['in_progress', 'unassigned', 'skipped'],
   in_progress: ['completed'],
-  completed:  ['billed'],
+  completed:  ['billed', 'in_progress'],
   billed:     [],
   skipped:    [],
 }
@@ -86,6 +86,22 @@ export async function PATCH(
           { error: `Invalid status transition: ${currentStatus} → ${nextStatus}` },
           { status: 409 }
         )
+      }
+
+      // Reopening a completed ticket: only managers/coordinators, clear completion data
+      if (currentStatus === 'completed' && nextStatus === 'in_progress') {
+        if (isTechnician(user.role)) {
+          return NextResponse.json({ error: 'Only managers can reopen tickets' }, { status: 403 })
+        }
+        const updated = await updateTicket(id, {
+          status: 'in_progress',
+          completed_date: null,
+          completion_notes: null,
+          hours_worked: null,
+          parts_used: null,
+          billing_amount: null,
+        } as any)
+        return NextResponse.json(updated)
       }
     }
 
