@@ -5,6 +5,7 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 // ============================================================
 
 interface PartLine {
+  productNumber: string | null
   description: string
   quantity: number
   unit_price: number
@@ -22,6 +23,9 @@ interface BillingTicket {
   equipmentModel: string | null
   serialNumber: string | null
   locationOnSite: string | null
+  equipmentContactName: string | null
+  equipmentContactEmail: string | null
+  equipmentContactPhone: string | null
   technicianName: string
   completedDate: string
   hoursWorked: number | null
@@ -31,6 +35,10 @@ interface BillingTicket {
   billingType: string | null
   flatRate: number | null
   poRequired: boolean
+  poNumber: string | null
+  billingContactName: string | null
+  billingContactEmail: string | null
+  billingContactPhone: string | null
   customerSignature: string | null
   customerSignatureName: string | null
   photoUrls: string[]
@@ -124,6 +132,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#e8e8e8',
   },
+  colProductNum: { width: 70, color: '#111111' },
   colDescription: { flex: 3, color: '#111111' },
   colQty: { width: 40, textAlign: 'right', color: '#111111' },
   colUnitPrice: { width: 60, textAlign: 'right', color: '#111111' },
@@ -314,6 +323,19 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
           <Text style={[styles.fieldLabel, { fontFamily: 'Helvetica-Bold', color: '#cc0000' }]}>
             PO REQUIRED
           </Text>
+          {ticket.poNumber && (
+            <Text style={styles.fieldValue}>PO #: {ticket.poNumber}</Text>
+          )}
+        </View>
+      )}
+
+      {/* BILLING CONTACT */}
+      {(ticket.billingContactName || ticket.billingContactEmail || ticket.billingContactPhone) && (
+        <View style={{ marginTop: 4 }}>
+          <Text style={[styles.fieldLabel, { marginBottom: 2 }]}>Billing Contact:</Text>
+          <Text style={styles.fieldValue}>
+            {[ticket.billingContactName, ticket.billingContactEmail, ticket.billingContactPhone].filter(Boolean).join('  |  ')}
+          </Text>
         </View>
       )}
 
@@ -326,6 +348,14 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
           {ticket.locationOnSite ? `  |  Location: ${ticket.locationOnSite}` : ''}
         </Text>
       </View>
+      {(ticket.equipmentContactName || ticket.equipmentContactEmail || ticket.equipmentContactPhone) && (
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>Site Contact:</Text>
+          <Text style={styles.fieldValue}>
+            {[ticket.equipmentContactName, ticket.equipmentContactEmail, ticket.equipmentContactPhone].filter(Boolean).join('  |  ')}
+          </Text>
+        </View>
+      )}
 
       {/* SERVICE PERFORMED */}
       <Text style={styles.sectionLabel}>Service Performed</Text>
@@ -366,6 +396,7 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
       </Text>
       <View style={styles.table}>
         <View style={styles.tableHeaderRow}>
+          <Text style={[styles.colProductNum, styles.tableHeaderText]}>Product #</Text>
           <Text style={[styles.colDescription, styles.tableHeaderText]}>Description</Text>
           <Text style={[styles.colQty, styles.tableHeaderText]}>Qty</Text>
           <Text style={[styles.colUnitPrice, styles.tableHeaderText]}>Unit Price</Text>
@@ -378,6 +409,7 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
         ) : (
           ticket.partsUsed.map((part, idx) => (
             <View key={idx} style={styles.tableRow}>
+              <Text style={styles.colProductNum}>{part.productNumber ?? '—'}</Text>
               <Text style={styles.colDescription}>{dash(part.description)}</Text>
               <Text style={styles.colQty}>{part.quantity}</Text>
               <Text style={styles.colUnitPrice}>{fmt(part.unit_price)}</Text>

@@ -11,6 +11,7 @@ import { updateAnchorMonth } from '@/lib/db/schedules'
 // ============================================================
 
 interface PartLine {
+  productNumber: string | null
   description: string
   quantity: number
   unit_price: number
@@ -28,6 +29,9 @@ interface BillingTicket {
   equipmentModel: string | null
   serialNumber: string | null
   locationOnSite: string | null
+  equipmentContactName: string | null
+  equipmentContactEmail: string | null
+  equipmentContactPhone: string | null
   technicianName: string
   completedDate: string
   hoursWorked: number | null
@@ -37,6 +41,10 @@ interface BillingTicket {
   billingType: string | null
   flatRate: number | null
   poRequired: boolean
+  poNumber: string | null
+  billingContactName: string | null
+  billingContactEmail: string | null
+  billingContactPhone: string | null
   customerSignature: string | null
   customerSignatureName: string | null
   photoUrls: string[]
@@ -67,11 +75,18 @@ interface RawTicket {
     billing_zip: string | null
     po_required: boolean
   } | null
+  po_number: string | null
+  billing_contact_name: string | null
+  billing_contact_email: string | null
+  billing_contact_phone: string | null
   equipment: {
     make: string | null
     model: string | null
     serial_number: string | null
     location_on_site: string | null
+    contact_name: string | null
+    contact_email: string | null
+    contact_phone: string | null
     ship_to_locations: {
       address: string | null
       city: string | null
@@ -161,8 +176,12 @@ export async function POST(request: NextRequest) {
         customer_signature,
         customer_signature_name,
         photos,
+        po_number,
+        billing_contact_name,
+        billing_contact_email,
+        billing_contact_phone,
         customers(name, account_number, ar_terms, billing_address, billing_city, billing_state, billing_zip, po_required),
-        equipment(make, model, serial_number, location_on_site, ship_to_locations(address, city, state, zip)),
+        equipment(make, model, serial_number, location_on_site, contact_name, contact_email, contact_phone, ship_to_locations(address, city, state, zip)),
         technician:users!assigned_technician_id(name),
         pm_schedules(billing_type, flat_rate)
       `)
@@ -187,17 +206,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build a description lookup map from the products table
+    // Build lookup maps from the products table
     const productDescMap = new Map<number, string>()
+    const productNumMap = new Map<number, string>()
     if (productIdSet.size > 0) {
       const { data: products } = await supabase
         .from('products')
-        .select('synergy_id, description')
+        .select('synergy_id, number, description')
         .in('synergy_id', Array.from(productIdSet).map(String))
 
       for (const p of products ?? []) {
-        if (p.synergy_id && p.description) {
-          productDescMap.set(Number(p.synergy_id), p.description)
+        if (p.synergy_id) {
+          if (p.description) productDescMap.set(Number(p.synergy_id), p.description)
+          if (p.number) productNumMap.set(Number(p.synergy_id), p.number)
         }
       }
     }
@@ -223,6 +244,9 @@ export async function POST(request: NextRequest) {
     // --- Map raw tickets to BillingTicket[] ---
     const tickets: BillingTicket[] = (rawTickets as RawTicket[]).map((raw) => {
       const partsUsed: PartLine[] = (raw.parts_used ?? []).map((part) => ({
+        productNumber:
+          (typeof part.synergy_product_id === 'number' &&
+            productNumMap.get(part.synergy_product_id)) || null,
         description:
           (typeof part.synergy_product_id === 'number' &&
             productDescMap.get(part.synergy_product_id)) ||
@@ -261,6 +285,9 @@ export async function POST(request: NextRequest) {
         equipmentModel: raw.equipment?.model ?? null,
         serialNumber: raw.equipment?.serial_number ?? null,
         locationOnSite: raw.equipment?.location_on_site ?? null,
+        equipmentContactName: raw.equipment?.contact_name ?? null,
+        equipmentContactEmail: raw.equipment?.contact_email ?? null,
+        equipmentContactPhone: raw.equipment?.contact_phone ?? null,
         technicianName,
         completedDate: raw.completed_date
           ? new Date(raw.completed_date).toLocaleDateString('en-US', {
@@ -276,6 +303,10 @@ export async function POST(request: NextRequest) {
         billingType: raw.pm_schedules?.billing_type ?? null,
         flatRate: raw.pm_schedules?.flat_rate ?? null,
         poRequired: raw.customers?.po_required ?? false,
+        poNumber: raw.po_number ?? null,
+        billingContactName: raw.billing_contact_name ?? null,
+        billingContactEmail: raw.billing_contact_email ?? null,
+        billingContactPhone: raw.billing_contact_phone ?? null,
         customerSignature: raw.customer_signature ?? null,
         customerSignatureName: raw.customer_signature_name ?? null,
         photoUrls: photoUrlMap.get(raw.id) ?? [],
