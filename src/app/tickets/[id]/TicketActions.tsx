@@ -640,14 +640,14 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
               {parts.length > 0 && (
                 <div className="space-y-2">
                   {parts.map((part, i) => (
-                    <div key={`new-part-${i}`} className="grid grid-cols-[1fr_56px_72px_auto] items-center gap-2 sm:gap-2">
+                    <div key={`new-part-${i}`} className="rounded-md border border-gray-200 p-3 space-y-2 sm:border-0 sm:p-0 sm:space-y-0 sm:grid sm:grid-cols-[1fr_56px_72px_auto] sm:items-center sm:gap-2">
                       {/* Description with product search */}
                       <div
                         className="relative min-w-0"
                         ref={(el) => { comboRefs.current.set(i, el) }}
                       >
                         {part.isFromDb ? (
-                          <div className="flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-3 h-[34px] text-sm text-gray-900">
+                          <div className="flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-3 h-[44px] sm:h-[34px] text-sm text-gray-900">
                             <span className="flex-1 truncate">{part.description}</span>
                             <button
                               type="button"
@@ -663,7 +663,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                             placeholder="Search products..."
                             value={part.description}
                             onChange={(e) => handlePartDescriptionChange(i, e.target.value)}
-                            className="w-full rounded-md border border-gray-300 px-3 h-[34px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                            className="w-full rounded-md border border-gray-300 px-3 h-[44px] sm:h-[34px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
                           />
                         )}
                         {part.searchOpen && part.searchResults.length > 0 && (
@@ -697,47 +697,53 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                           </div>
                         )}
                       </div>
-                      {/* Qty */}
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="Qty"
-                        value={part.quantity}
-                        onChange={(e) => updatePartField(i, 'quantity', e.target.value)}
-                        className="w-full rounded-md border border-gray-300 px-2 h-[34px] text-sm text-gray-900 text-center focus:outline-none focus:ring-2 focus:ring-slate-500"
-                      />
-                      {/* Price */}
-                      {isTech ? (
-                        <input
-                          type="number"
-                          value={0}
-                          readOnly
-                          className="w-full rounded-md border border-gray-200 bg-gray-50 px-2 h-[34px] text-sm text-gray-400 text-right cursor-not-allowed"
-                        />
-                      ) : (
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="Price"
-                          value={part.unitPrice}
-                          onChange={(e) => updatePartField(i, 'unitPrice', e.target.value)}
-                          readOnly={part.isFromDb}
-                          className={`w-full rounded-md border px-2 h-[34px] text-sm text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-slate-500 ${
-                            part.isFromDb
-                              ? 'border-green-300 bg-green-50 cursor-not-allowed'
-                              : 'border-gray-300'
-                          }`}
-                        />
-                      )}
-                      {/* Remove */}
-                      <button
-                        type="button"
-                        onClick={() => removePart(i)}
-                        className="text-gray-400 hover:text-red-500 text-xs min-h-[44px] sm:min-h-0 flex items-center justify-center"
-                      >
-                        Remove
-                      </button>
+                      {/* Qty + Price + Remove — horizontal row on mobile, grid cells on desktop */}
+                      <div className="flex items-center gap-2 sm:contents">
+                        <div className="flex-1 sm:contents">
+                          <label className="block text-xs text-gray-500 mb-0.5 sm:hidden">Qty</label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={part.quantity}
+                            onChange={(e) => updatePartField(i, 'quantity', e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-2 h-[44px] sm:h-[34px] text-sm text-gray-900 text-center focus:outline-none focus:ring-2 focus:ring-slate-500"
+                          />
+                        </div>
+                        <div className="flex-1 sm:contents">
+                          <label className="block text-xs text-gray-500 mb-0.5 sm:hidden">Price</label>
+                          {isTech ? (
+                            <input
+                              type="number"
+                              value={0}
+                              readOnly
+                              className="w-full rounded-md border border-gray-200 bg-gray-50 px-2 h-[44px] sm:h-[34px] text-sm text-gray-400 text-right cursor-not-allowed"
+                            />
+                          ) : (
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Price"
+                              value={part.unitPrice}
+                              onChange={(e) => updatePartField(i, 'unitPrice', e.target.value)}
+                              readOnly={part.isFromDb}
+                              className={`w-full rounded-md border px-2 h-[44px] sm:h-[34px] text-sm text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-slate-500 ${
+                                part.isFromDb
+                                  ? 'border-green-300 bg-green-50 cursor-not-allowed'
+                                  : 'border-gray-300'
+                              }`}
+                            />
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removePart(i)}
+                          className="text-gray-400 hover:text-red-500 text-xs min-h-[44px] sm:min-h-0 flex items-center justify-center px-1"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   ))}
                   <p className="text-xs text-gray-500">
