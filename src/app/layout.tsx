@@ -52,6 +52,11 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="h-full bg-gray-50">
+        {process.env.VERCEL_ENV === 'preview' && (
+          <div className="bg-amber-500 text-white text-center text-sm font-semibold py-1.5 tracking-wide">
+            Preview Site
+          </div>
+        )}
         <UserProvider user={userContext}>
           <LayoutShell>{children}</LayoutShell>
         </UserProvider>
