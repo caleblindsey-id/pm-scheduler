@@ -13,9 +13,5 @@ export default async function TechnicianAnalyticsPage({
   const today = new Date().toISOString().split('T')[0]
   const data = await getTechnicianAnalytics(technicianId, 'monthly', today)
 
-  return (
-    <div className="space-y-6">
-      <TechnicianProfile initialData={data} />
-    </div>
-  )
+  return <TechnicianProfile initialData={data} />
 }

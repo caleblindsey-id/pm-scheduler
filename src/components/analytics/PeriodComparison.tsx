@@ -54,9 +54,11 @@ export default function PeriodComparison({ current, prior, yoy }: PeriodComparis
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
       <div className="px-5 py-4 border-b border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-900">Period Comparison</h3>
+        <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Period Comparison</h3>
       </div>
-      <div className="overflow-x-auto">
+
+      {/* Desktop table */}
+      <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
@@ -85,6 +87,33 @@ export default function PeriodComparison({ current, prior, yoy }: PeriodComparis
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="lg:hidden divide-y divide-gray-100">
+        {rows.map((row) => (
+          <div key={row.label} className="px-4 py-3">
+            <div className="text-xs font-medium text-gray-500 uppercase mb-1.5">{row.label}</div>
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="text-lg font-semibold text-gray-900">{fmt(row.currentVal, row.format)}</span>
+              <span className={`text-sm font-medium ${deltaColor(row.currentVal, row.priorVal, row.invertDelta)}`}>
+                {delta(row.currentVal, row.priorVal)} MoM
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span>Last: {fmt(row.priorVal, row.format)}</span>
+              {row.yoyVal != null && (
+                <>
+                  <span>·</span>
+                  <span>LY: {fmt(row.yoyVal, row.format)}</span>
+                  <span className={`font-medium ${deltaColor(row.currentVal, row.yoyVal, row.invertDelta)}`}>
+                    ({delta(row.currentVal, row.yoyVal)})
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

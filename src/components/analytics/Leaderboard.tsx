@@ -20,27 +20,6 @@ function getSortValue(row: TechRow, sort: SortMetric): number {
   }
 }
 
-function getTargetPercent(row: TechRow, metric: string): number | null {
-  const target = row.targets.find((t) => t.metric === metric)
-  if (!target) return null
-
-  let actual: number
-  switch (metric) {
-    case 'tickets_completed': actual = row.ticketsCompleted; break
-    case 'revenue': actual = row.revenue; break
-    case 'avg_completion_days': actual = row.avgCompletionDays ?? 0; break
-    case 'revenue_per_hour': actual = row.revenuePerHour ?? 0; break
-    default: return null
-  }
-
-  if (target.targetValue === 0) return null
-  // For completion days, lower is better — invert the percentage
-  if (metric === 'avg_completion_days') {
-    return actual === 0 ? 100 : (target.targetValue / actual) * 100
-  }
-  return (actual / target.targetValue) * 100
-}
-
 function getPrimaryTargetPercent(row: TechRow, sort: SortMetric): number | null {
   const metricMap: Record<SortMetric, string> = {
     revenue: 'revenue',
@@ -48,7 +27,18 @@ function getPrimaryTargetPercent(row: TechRow, sort: SortMetric): number | null 
     profit: 'revenue',
     efficiency: 'revenue_per_hour',
   }
-  return getTargetPercent(row, metricMap[sort])
+  const metric = metricMap[sort]
+  const target = row.targets.find((t) => t.metric === metric)
+  if (!target || target.targetValue === 0) return null
+
+  let actual: number
+  switch (metric) {
+    case 'tickets_completed': actual = row.ticketsCompleted; break
+    case 'revenue': actual = row.revenue; break
+    case 'revenue_per_hour': actual = row.revenuePerHour ?? 0; break
+    default: return null
+  }
+  return (actual / target.targetValue) * 100
 }
 
 const sortTabs: { key: SortMetric; label: string }[] = [
@@ -57,6 +47,20 @@ const sortTabs: { key: SortMetric; label: string }[] = [
   { key: 'profit', label: 'Profit' },
   { key: 'efficiency', label: 'Efficiency' },
 ]
+
+function TargetBadge({ percent }: { percent: number | null }) {
+  if (percent == null) return <span className="text-xs text-gray-400">—</span>
+  const style = percent >= 100
+    ? 'bg-green-100 text-green-700'
+    : percent >= 70
+    ? 'bg-yellow-100 text-yellow-700'
+    : 'bg-red-100 text-red-700'
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${style}`}>
+      {percent.toFixed(0)}%
+    </span>
+  )
+}
 
 export default function Leaderboard({ techRows, activeSort, onSortChange }: LeaderboardProps) {
   const router = useRouter()
@@ -83,7 +87,8 @@ export default function Leaderboard({ techRows, activeSort, onSortChange }: Lead
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Desktop table */}
+      <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
@@ -110,13 +115,9 @@ export default function Leaderboard({ techRows, activeSort, onSortChange }: Lead
                   className={`cursor-pointer transition-colors hover:bg-gray-50 ${belowTarget ? 'bg-red-50/50 hover:bg-red-50' : ''}`}
                 >
                   <td className="px-5 py-3">
-                    <span
-                      className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                        rank === 1
-                          ? 'bg-amber-400 text-amber-900'
-                          : 'bg-gray-200 text-gray-600'
-                      }`}
-                    >
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                      rank === 1 ? 'bg-amber-400 text-amber-900' : 'bg-gray-200 text-gray-600'
+                    }`}>
                       {rank}
                     </span>
                   </td>
@@ -133,21 +134,7 @@ export default function Leaderboard({ techRows, activeSort, onSortChange }: Lead
                     {row.grossProfit != null ? `$${row.grossProfit.toLocaleString('en-US', { minimumFractionDigits: 0 })}` : '—'}
                   </td>
                   <td className="px-5 py-3 text-center">
-                    {targetPct != null ? (
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          targetPct >= 100
-                            ? 'bg-green-100 text-green-700'
-                            : targetPct >= 70
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {targetPct.toFixed(0)}%
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
+                    <TargetBadge percent={targetPct} />
                   </td>
                 </tr>
               )
@@ -161,10 +148,63 @@ export default function Leaderboard({ techRows, activeSort, onSortChange }: Lead
             )}
           </tbody>
         </table>
+        <div className="px-5 py-2.5 border-t border-gray-100 text-center text-xs text-gray-400">
+          Click any row to view detailed technician profile
+        </div>
       </div>
 
-      <div className="px-5 py-2.5 border-t border-gray-100 text-center text-xs text-gray-400">
-        Click any row to view detailed technician profile
+      {/* Mobile cards */}
+      <div className="lg:hidden divide-y divide-gray-100">
+        {sorted.map((row, i) => {
+          const rank = i + 1
+          const targetPct = getPrimaryTargetPercent(row, activeSort)
+          const belowTarget = targetPct != null && targetPct < 70
+
+          return (
+            <div
+              key={row.id}
+              onClick={() => router.push(`/analytics/${row.id}`)}
+              className={`px-4 py-3 cursor-pointer active:bg-gray-50 ${belowTarget ? 'bg-red-50/30' : ''}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                    rank === 1 ? 'bg-amber-400 text-amber-900' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {rank}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">{row.name}</span>
+                </div>
+                <TargetBadge percent={targetPct} />
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Tickets</span>
+                  <span className="font-medium text-gray-900">{row.ticketsCompleted}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Revenue</span>
+                  <span className="font-medium text-gray-900">${row.revenue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">$/Hour</span>
+                  <span className="text-gray-900">{row.revenuePerHour != null ? `$${row.revenuePerHour.toFixed(0)}` : '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Profit</span>
+                  <span className={`font-medium ${row.grossProfit != null ? (row.grossProfit >= 0 ? 'text-green-600' : 'text-red-500') : 'text-gray-400'}`}>
+                    {row.grossProfit != null ? `$${row.grossProfit.toLocaleString()}` : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        {sorted.length === 0 && (
+          <div className="px-4 py-8 text-center text-sm text-gray-500">
+            No technician data available for this period.
+          </div>
+        )}
       </div>
     </div>
   )

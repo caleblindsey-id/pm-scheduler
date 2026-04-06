@@ -8,9 +8,5 @@ export default async function AnalyticsPage() {
   const today = new Date().toISOString().split('T')[0]
   const data = await getTeamAnalytics('monthly', today)
 
-  return (
-    <div className="space-y-6">
-      <AnalyticsOverview initialData={data} />
-    </div>
-  )
+  return <AnalyticsOverview initialData={data} />
 }

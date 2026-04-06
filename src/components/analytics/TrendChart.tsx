@@ -14,6 +14,7 @@ import type { TrendPoint, ResolvedTarget } from '@/lib/db/analytics'
 type Metric = 'revenue' | 'tickets' | 'profit'
 
 interface TrendChartProps {
+  title?: string
   data: TrendPoint[]
   activeMetric: Metric
   onMetricChange: (metric: Metric) => void
@@ -52,7 +53,7 @@ function formatTooltipValue(value: number, metric: Metric): string {
   return value.toString()
 }
 
-export default function TrendChart({ data, activeMetric, onMetricChange, targets }: TrendChartProps) {
+export default function TrendChart({ title = 'Monthly Trend', data, activeMetric, onMetricChange, targets }: TrendChartProps) {
   const dataKey = getDataKey(activeMetric)
   const targetValue = getTargetValue(targets, activeMetric)
 
@@ -64,7 +65,7 @@ export default function TrendChart({ data, activeMetric, onMetricChange, targets
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
       <div className="px-5 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h3 className="text-sm font-semibold text-gray-900">Monthly Trend</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         <div className="flex border border-gray-200 rounded-md overflow-hidden">
           {metricTabs.map((tab) => (
             <button

@@ -44,55 +44,28 @@ export default function AnalyticsOverview({ initialData }: AnalyticsOverviewProp
   }
 
   const { teamKpis: kpi, priorKpis: prior } = data
-
-  // Build trend data from all tech rows aggregated by month
-  // For team overview, we aggregate the individual tech trend data
-  // Since we don't have trend data at team level, we'll use a simple approach
-  const trendData = (() => {
-    // Generate last 12 months of labels
-    const months: { month: number; year: number; label: string }[] = []
-    const now = new Date()
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      months.push({
-        month: d.getMonth() + 1,
-        year: d.getFullYear(),
-        label: d.toLocaleString('en-US', { month: 'short' }),
-      })
-    }
-    // We only have current period data for team overview, so show current month
-    return months.map((m) => {
-      const isCurrentMonth = m.month === now.getMonth() + 1 && m.year === now.getFullYear()
-      return {
-        ...m,
-        ticketsCompleted: isCurrentMonth ? kpi.ticketsCompleted : 0,
-        revenue: isCurrentMonth ? kpi.totalRevenue : 0,
-        totalHours: 0,
-        grossProfit: isCurrentMonth ? kpi.grossProfit : 0,
-      }
-    })
-  })()
+  const deltaLabel = periodType === 'weekly' ? 'vs last week' : 'vs last month'
 
   return (
-    <>
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Technician Analytics</h1>
-          <p className="text-sm text-gray-500">{data.period.label}</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Technician Analytics</h1>
+          <p className="text-sm text-gray-500 mt-1">{data.period.label}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowTargets(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
           >
-            <Target className="h-4 w-4" />
+            <Target className="h-3.5 w-3.5" />
             Team Targets
           </button>
           <div className="flex border border-gray-200 rounded-md overflow-hidden">
             <button
               onClick={() => handlePeriodChange('weekly')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 periodType === 'weekly' ? 'bg-slate-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
             >
@@ -100,7 +73,7 @@ export default function AnalyticsOverview({ initialData }: AnalyticsOverviewProp
             </button>
             <button
               onClick={() => handlePeriodChange('monthly')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 periodType === 'monthly' ? 'bg-slate-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
             >
@@ -110,64 +83,64 @@ export default function AnalyticsOverview({ initialData }: AnalyticsOverviewProp
         </div>
       </div>
 
-      {loading && (
-        <div className="text-center text-sm text-gray-500 py-2">Updating...</div>
-      )}
+      {/* Content — fades during loading */}
+      <div className={`space-y-6 transition-opacity ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <KpiCard
+            label="Tickets Completed"
+            value={kpi.ticketsCompleted}
+            format="number"
+            delta={kpi.ticketsCompleted - prior.ticketsCompleted}
+            deltaLabel={deltaLabel}
+          />
+          <KpiCard
+            label="Total Revenue"
+            value={kpi.totalRevenue}
+            format="currency"
+            delta={kpi.totalRevenue - prior.totalRevenue}
+            deltaLabel={deltaLabel}
+          />
+          <KpiCard
+            label="Gross Profit"
+            value={kpi.grossProfit}
+            format="currency"
+            delta={kpi.grossProfit != null && prior.grossProfit != null ? kpi.grossProfit - prior.grossProfit : null}
+            deltaLabel={deltaLabel}
+          />
+          <KpiCard
+            label="Avg Hours/Ticket"
+            value={kpi.avgHoursPerTicket}
+            format="hours"
+            delta={kpi.avgHoursPerTicket != null && prior.avgHoursPerTicket != null ? kpi.avgHoursPerTicket - prior.avgHoursPerTicket : null}
+            invertDelta
+            deltaLabel={deltaLabel}
+          />
+          <KpiCard
+            label="Avg Completion"
+            value={kpi.avgCompletionDays}
+            format="days"
+            delta={kpi.avgCompletionDays != null && prior.avgCompletionDays != null ? kpi.avgCompletionDays - prior.avgCompletionDays : null}
+            invertDelta
+            deltaLabel={deltaLabel}
+          />
+        </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <KpiCard
-          label="Tickets Completed"
-          value={kpi.ticketsCompleted}
-          format="number"
-          delta={kpi.ticketsCompleted - prior.ticketsCompleted}
-          deltaLabel={periodType === 'weekly' ? 'vs last week' : 'vs last month'}
+        {/* Leaderboard */}
+        <Leaderboard
+          techRows={data.techRows}
+          activeSort={sortMetric}
+          onSortChange={setSortMetric}
         />
-        <KpiCard
-          label="Total Revenue"
-          value={kpi.totalRevenue}
-          format="currency"
-          delta={kpi.totalRevenue - prior.totalRevenue}
-          deltaLabel={periodType === 'weekly' ? 'vs last week' : 'vs last month'}
-        />
-        <KpiCard
-          label="Gross Profit"
-          value={kpi.grossProfit}
-          format="currency"
-          delta={kpi.grossProfit != null && prior.grossProfit != null ? kpi.grossProfit - prior.grossProfit : null}
-          deltaLabel={periodType === 'weekly' ? 'vs last week' : 'vs last month'}
-        />
-        <KpiCard
-          label="Avg Hours/Ticket"
-          value={kpi.avgHoursPerTicket}
-          format="hours"
-          delta={kpi.avgHoursPerTicket != null && prior.avgHoursPerTicket != null ? kpi.avgHoursPerTicket - prior.avgHoursPerTicket : null}
-          invertDelta
-          deltaLabel={periodType === 'weekly' ? 'vs last week' : 'vs last month'}
-        />
-        <KpiCard
-          label="Avg Completion"
-          value={kpi.avgCompletionDays}
-          format="days"
-          delta={kpi.avgCompletionDays != null && prior.avgCompletionDays != null ? kpi.avgCompletionDays - prior.avgCompletionDays : null}
-          invertDelta
-          deltaLabel={periodType === 'weekly' ? 'vs last week' : 'vs last month'}
+
+        {/* Team Trend Chart */}
+        <TrendChart
+          title={periodType === 'weekly' ? 'Weekly Trend' : 'Monthly Trend'}
+          data={data.teamTrend ?? []}
+          activeMetric={trendMetric}
+          onMetricChange={setTrendMetric}
         />
       </div>
-
-      {/* Leaderboard */}
-      <Leaderboard
-        techRows={data.techRows}
-        activeSort={sortMetric}
-        onSortChange={setSortMetric}
-      />
-
-      {/* Team Trend Chart */}
-      <TrendChart
-        data={trendData}
-        activeMetric={trendMetric}
-        onMetricChange={setTrendMetric}
-      />
 
       {/* Targets Modal */}
       {showTargets && (
@@ -182,6 +155,6 @@ export default function AnalyticsOverview({ initialData }: AnalyticsOverviewProp
           }}
         />
       )}
-    </>
+    </div>
   )
 }

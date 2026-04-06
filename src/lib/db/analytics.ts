@@ -45,6 +45,7 @@ export type TeamAnalytics = {
     avgCompletionDays: number | null
   }
   techRows: TechRow[]
+  teamTrend: TrendPoint[]
 }
 
 export type TrendPoint = {
@@ -350,6 +351,54 @@ export async function getTeamAnalytics(
   }
   if (priorDayCount > 0) priorCompDays = priorDaySum / priorDayCount
 
+  // Team trend: last 12 months of aggregated data
+  const trendStart = new Date(range.start + 'T12:00:00Z')
+  trendStart.setUTCMonth(trendStart.getUTCMonth() - 11)
+  const trendStartStr = trendStart.toISOString().split('T')[0]
+
+  const { data: trendTickets } = await supabase
+    .from('pm_tickets')
+    .select('assigned_technician_id, status, billing_amount, hours_worked, additional_hours_worked, completed_date')
+    .in('status', ['completed', 'billed'])
+    .gte('completed_date', trendStartStr)
+    .order('completed_date', { ascending: false })
+
+  const teamTrend: TrendPoint[] = []
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(range.start + 'T12:00:00Z')
+    d.setUTCMonth(d.getUTCMonth() - i)
+    const mr = getMonthRange(d.toISOString().split('T')[0])
+    const monthTickets = (trendTickets ?? []).filter(
+      (t) => t.completed_date && t.completed_date >= mr.start && t.completed_date <= mr.end + 'T23:59:59Z'
+    )
+    const mRevenue = monthTickets.reduce((s, t) => s + (t.billing_amount ?? 0), 0)
+    const mHours = monthTickets.reduce((s, t) => s + (t.hours_worked ?? 0) + (t.additional_hours_worked ?? 0), 0)
+
+    // Gross profit for trend: sum across techs with known hourly_cost
+    let mProfit: number | null = null
+    if ((techs ?? []).some((t) => t.hourly_cost != null)) {
+      mProfit = 0
+      for (const tech of techs ?? []) {
+        const techMonthTickets = monthTickets.filter((t) => t.assigned_technician_id === tech.id)
+        const techRev = techMonthTickets.reduce((s, t) => s + (t.billing_amount ?? 0), 0)
+        const techHrs = techMonthTickets.reduce((s, t) => s + (t.hours_worked ?? 0) + (t.additional_hours_worked ?? 0), 0)
+        if (tech.hourly_cost != null) {
+          mProfit! += techRev - techHrs * tech.hourly_cost
+        }
+      }
+    }
+
+    teamTrend.push({
+      month: d.getUTCMonth() + 1,
+      year: d.getUTCFullYear(),
+      label: d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
+      ticketsCompleted: monthTickets.length,
+      revenue: mRevenue,
+      totalHours: mHours,
+      grossProfit: mProfit,
+    })
+  }
+
   return {
     period: { type: periodType, startDate: range.start, endDate: range.end, label: range.label },
     teamKpis: {
@@ -371,6 +420,7 @@ export async function getTeamAnalytics(
       avgCompletionDays: priorCompDays,
     },
     techRows,
+    teamTrend,
   }
 }
 
