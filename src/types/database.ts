@@ -169,6 +169,19 @@ export type EquipmentNoteRow = {
   created_at: string
 }
 
+export type EquipmentProspectRow = {
+  id: string
+  equipment_id: string
+  is_prospect: boolean
+  removed: boolean
+  removal_reason: string | null
+  removal_note: string | null
+  removed_at: string | null
+  removed_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type SyncLogRow = {
   id: number
   sync_type: SyncType | null
@@ -418,6 +431,27 @@ export interface Database {
           {
             foreignKeyName: 'equipment_notes_user_id_fkey'
             columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      equipment_prospects: {
+        Row: EquipmentProspectRow
+        Insert: Pick<EquipmentProspectRow, 'equipment_id' | 'is_prospect' | 'removed'> & Partial<Pick<EquipmentProspectRow, 'removal_reason' | 'removal_note' | 'removed_at' | 'removed_by'>>
+        Update: Partial<Omit<EquipmentProspectRow, 'id' | 'equipment_id' | 'created_at'>>
+        Relationships: [
+          {
+            foreignKeyName: 'equipment_prospects_equipment_id_fkey'
+            columns: ['equipment_id']
+            isOneToOne: true
+            referencedRelation: 'equipment'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'equipment_prospects_removed_by_fkey'
+            columns: ['removed_by']
             isOneToOne: false
             referencedRelation: 'users'
             referencedColumns: ['id']
