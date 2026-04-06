@@ -123,6 +123,9 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
   const isTech = userRole === 'technician'
   const canSeePricing = userRole === 'manager' || userRole === 'coordinator'
 
+  // Share work order state
+  const [sharing, setSharing] = useState(false)
+
   const billingType = ticket.schedule?.billing_type ?? null
   const flatRate = ticket.schedule?.flat_rate ?? null
   const isFlatRate = billingType === 'flat_rate' && flatRate != null
@@ -492,6 +495,43 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
     const supabase = createClient()
     await supabase.storage.from('ticket-photos').remove([photo.storage_path])
     setPhotos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleShareWorkOrder() {
+    setSharing(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/work-order-pdf`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to generate work order')
+      }
+      const blob = await res.blob()
+      const customerSlug = (ticket.customers?.name ?? 'Customer').replace(/[^a-zA-Z0-9]/g, '-').substring(0, 40)
+      const filename = `WO-${ticket.work_order_number}-${customerSlug}.pdf`
+      const file = new File([blob], filename, { type: 'application/pdf' })
+
+      // Try Web Share API (mobile)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Work Order WO-${ticket.work_order_number}` })
+      } else {
+        // Fallback: download
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+    } catch (err) {
+      // User cancelling share sheet throws AbortError — don't show as error
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : 'Failed to share work order')
+    } finally {
+      setSharing(false)
+    }
   }
 
   async function handleDelete() {
@@ -1174,6 +1214,16 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
           )}
         </div>
       )}
+      {/* Share Work Order — visible to all roles on completed/billed tickets */}
+      <div className="mt-5 pt-4 border-t border-gray-200">
+        <button
+          onClick={handleShareWorkOrder}
+          disabled={sharing}
+          className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-50 transition-colors min-h-[44px]"
+        >
+          {sharing ? 'Generating...' : 'Share Work Order'}
+        </button>
+      </div>
       {ticket.status === 'completed' && !isTech && (
         <div className="mt-5 pt-4 border-t border-gray-200">
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
