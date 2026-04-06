@@ -81,9 +81,10 @@ export default async function DashboardPage() {
         {statusCards.map((card) => {
           const Icon = card.icon
           return (
-            <div
+            <Link
               key={card.status}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+              href={`/tickets?month=${month}&year=${year}&status=${card.status}`}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:border-gray-300 hover:shadow transition-all"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-600">
@@ -94,7 +95,7 @@ export default async function DashboardPage() {
               <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
                 {counts[card.status]}
               </p>
-            </div>
+            </Link>
           )
         })}
       </div>

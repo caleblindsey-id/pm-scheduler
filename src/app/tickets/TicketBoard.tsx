@@ -30,6 +30,7 @@ interface TicketBoardProps {
   currentMonth: number
   currentYear: number
   userRole: import('@/types/database').UserRole | null
+  initialStatus?: string
 }
 
 export default function TicketBoard({
@@ -38,6 +39,7 @@ export default function TicketBoard({
   currentMonth,
   currentYear,
   userRole,
+  initialStatus = '',
 }: TicketBoardProps) {
   const isManager = userRole === 'manager' || userRole === 'coordinator'
   const router = useRouter()
@@ -46,7 +48,7 @@ export default function TicketBoard({
   const [month, setMonth] = useState(currentMonth)
   const [year, setYear] = useState(currentYear)
   const [techFilter, setTechFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(initialStatus)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [assignTo, setAssignTo] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)

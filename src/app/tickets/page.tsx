@@ -54,6 +54,7 @@ export default async function TicketsPage({
         currentMonth={month}
         currentYear={year}
         userRole={user?.role ?? null}
+        initialStatus={params.status ?? ''}
       />
     </div>
   )
