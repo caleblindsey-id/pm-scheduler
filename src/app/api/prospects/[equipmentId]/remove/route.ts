@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, MANAGER_ROLES } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 
 const ALLOWED_REASONS = [
@@ -14,7 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ equipmentId: string }> }
 ) {
   const user = await getCurrentUser()
-  if (!user?.role || !['manager', 'coordinator'].includes(user.role)) {
+  if (!user?.role || !MANAGER_ROLES.includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser, MANAGER_ROLES } from '@/lib/auth'
+import { getCurrentUser, ADMIN_ROLES } from '@/lib/auth'
 import { getSetting, setSetting } from '@/lib/db/settings'
 
 export async function GET(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user?.role || !MANAGER_ROLES.includes(user.role)) {
+    if (!user?.role || !ADMIN_ROLES.includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

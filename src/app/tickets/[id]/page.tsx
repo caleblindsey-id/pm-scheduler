@@ -35,7 +35,7 @@ export default async function TicketDetailPage({
     ? await getEquipmentServiceHistory(ticket.equipment_id, ticket.id)
     : []
 
-  const showBilling = user?.role === 'manager' || user?.role === 'coordinator'
+  const showBilling = !isTechnician(user?.role ?? null)
 
   const equipmentLabel = [ticket.equipment?.make, ticket.equipment?.model]
     .filter(Boolean)

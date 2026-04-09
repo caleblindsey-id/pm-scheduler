@@ -27,6 +27,9 @@ const allNavItems = [
   { label: 'Products', icon: Package, route: '/products' },
   { label: 'Billing', icon: FileText, route: '/billing' },
   { label: 'Analytics', icon: BarChart3, route: '/analytics' },
+]
+
+const adminNavItems = [
   { label: 'Settings', icon: Settings, route: '/settings' },
 ]
 
@@ -44,7 +47,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const user = useUser()
-  const navItems = user?.role === 'technician' ? techNavItems : allNavItems
+  const navItems = user?.role === 'technician'
+    ? techNavItems
+    : user?.role === 'super_admin'
+      ? [...allNavItems, ...adminNavItems]
+      : allNavItems
 
   async function handleLogout() {
     const supabase = createClient()

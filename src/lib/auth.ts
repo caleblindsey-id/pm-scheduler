@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/db/users'
 import { UserRow, UserRole } from '@/types/database'
 
-export const MANAGER_ROLES: UserRole[] = ['manager', 'coordinator']
+export const MANAGER_ROLES: UserRole[] = ['super_admin', 'manager', 'coordinator']
+export const RESET_ROLES: UserRole[] = ['super_admin', 'manager']
+export const ADMIN_ROLES: UserRole[] = ['super_admin']
 
 export function isTechnician(role: UserRole | null): boolean {
   if (!role) return false

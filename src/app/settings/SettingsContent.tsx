@@ -422,6 +422,7 @@ function AddUserModal({
                   <option value="technician">Technician</option>
                   <option value="coordinator">Coordinator</option>
                   <option value="manager">Manager</option>
+                  <option value="super_admin">Super Admin</option>
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-2">

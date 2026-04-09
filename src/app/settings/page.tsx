@@ -6,7 +6,7 @@ import { SyncLogRow } from '@/types/database'
 import SettingsContent from './SettingsContent'
 
 export default async function SettingsPage() {
-  await requireRole('manager', 'coordinator')
+  await requireRole('super_admin')
   const [users, syncLog, laborRate] = await Promise.all([
     getUsers(),
     getSyncLog(),

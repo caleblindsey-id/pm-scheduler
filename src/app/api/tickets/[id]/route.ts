@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { updateTicket } from '@/lib/db/tickets'
-import { getCurrentUser, isTechnician } from '@/lib/auth'
+import { getCurrentUser, isTechnician, RESET_ROLES } from '@/lib/auth'
 import { PmTicketRow, TicketStatus } from '@/types/database'
 
 // Only allow these fields to be updated via PATCH
@@ -142,7 +142,7 @@ export async function PATCH(
         (currentStatus === 'in_progress' && (nextStatus === 'assigned' || nextStatus === 'unassigned')) ||
         (currentStatus === 'billed')
       if (isReset) {
-        if (user.role !== 'manager') {
+        if (!RESET_ROLES.includes(user.role!)) {
           return NextResponse.json({ error: 'Only managers can reset ticket status' }, { status: 403 })
         }
 
@@ -205,7 +205,7 @@ export async function DELETE(
     if (!user?.role) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (user.role !== 'manager') {
+    if (!RESET_ROLES.includes(user.role!)) {
       return NextResponse.json({ error: 'Only managers can delete tickets' }, { status: 403 })
     }
 

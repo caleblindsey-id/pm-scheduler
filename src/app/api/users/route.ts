@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser, MANAGER_ROLES } from '@/lib/auth'
+import { getCurrentUser, ADMIN_ROLES } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { UserRole } from '@/types/database'
@@ -7,7 +7,7 @@ import { UserRole } from '@/types/database'
 export async function POST(request: NextRequest) {
   try {
     const currentUser = await getCurrentUser()
-    if (!currentUser?.role || !MANAGER_ROLES.includes(currentUser.role)) {
+    if (!currentUser?.role || !ADMIN_ROLES.includes(currentUser.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

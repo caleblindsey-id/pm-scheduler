@@ -2,7 +2,7 @@
 // Enums
 // ============================================================
 
-export type UserRole = 'manager' | 'coordinator' | 'technician'
+export type UserRole = 'super_admin' | 'manager' | 'coordinator' | 'technician'
 
 export type TicketStatus = 'unassigned' | 'assigned' | 'in_progress' | 'completed' | 'billed' | 'skipped'
 
