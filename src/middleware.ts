@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Pages technicians are allowed to access
-const TECH_ALLOWED_PAGES = ['/', '/tickets', '/login']
+const TECH_ALLOWED_PAGES = ['/', '/tickets', '/login', '/change-password']
 const TECH_ALLOWED_PAGE_PATTERNS = [
   /^\/tickets\/[^/]+$/,    // /tickets/[id]
   /^\/equipment\/[^/]+$/,  // /equipment/[id] — read-only for techs
@@ -25,7 +25,8 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   // Skip auth check for public routes
-  if (request.nextUrl.pathname.startsWith('/login')) {
+  const { pathname } = request.nextUrl
+  if (pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/auth/')) {
     return supabaseResponse
   }
 
@@ -54,7 +55,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect unauthenticated users to login
   if (!session) {
-    if (request.nextUrl.pathname.startsWith('/api/')) {
+    if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const url = request.nextUrl.clone()
@@ -66,7 +67,6 @@ export async function middleware(request: NextRequest) {
   const role = request.cookies.get('pm-role')?.value
 
   if (role === 'technician') {
-    const pathname = request.nextUrl.pathname
     if (!isTechAllowed(pathname)) {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -75,6 +75,20 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/'
       return NextResponse.redirect(url)
     }
+  }
+
+  // Force password change if flagged
+  const mustChangePw = request.cookies.get('pm-must-change-pw')?.value
+  if (
+    mustChangePw === 'true' &&
+    !pathname.startsWith('/change-password') &&
+    !pathname.startsWith('/auth/') &&
+    !pathname.startsWith('/api/')
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/change-password'
+    url.searchParams.set('forced', 'true')
+    return NextResponse.redirect(url)
   }
 
   return supabaseResponse

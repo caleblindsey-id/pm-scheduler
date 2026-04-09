@@ -9,7 +9,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
-  if (pathname === '/login') {
+  if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/change-password') {
     return <>{children}</>
   }
 

@@ -28,11 +28,16 @@ export default async function RootLayout({
 }>) {
   const dbUser = await getCurrentUser()
 
-  // Refresh the pm-role cookie on every full page load
+  // Refresh auth cookies on every full page load
   if (dbUser?.role) {
     try {
       const cookieStore = await cookies()
       cookieStore.set('pm-role', dbUser.role, {
+        httpOnly: true,
+        sameSite: 'strict',
+        path: '/',
+      })
+      cookieStore.set('pm-must-change-pw', dbUser.must_change_password ? 'true' : 'false', {
         httpOnly: true,
         sameSite: 'strict',
         path: '/',

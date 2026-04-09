@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { UserRow, UserRole, SyncLogRow } from '@/types/database'
-import { X, Info } from 'lucide-react'
+import { X } from 'lucide-react'
 
 interface SettingsContentProps {
   users: UserRow[]
@@ -33,13 +33,6 @@ export default function SettingsContent({ users, syncLog, laborRate }: SettingsC
           >
             Add User
           </button>
-        </div>
-
-        <div className="px-5 py-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800 flex items-center gap-2">
-          <Info className="h-4 w-4 text-blue-500 shrink-0" />
-          <span className="text-xs text-blue-700 dark:text-blue-300">
-            Auth accounts must be created separately in the Supabase dashboard.
-          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -320,16 +313,15 @@ function AddUserModal({
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const { error: insertError } = await supabase.from('users').insert({
-      email,
-      name,
-      role,
-      active: true,
-    } )
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, role }),
+    })
 
-    if (insertError) {
-      setError(insertError.message)
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error ?? 'Failed to create user.')
       setLoading(false)
       return
     }

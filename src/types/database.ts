@@ -99,6 +99,7 @@ export type UserRow = {
   created_at: string
   synergy_id: string | null
   hourly_cost: number | null
+  must_change_password: boolean
 }
 
 export type EquipmentRow = {
@@ -232,7 +233,7 @@ export type ProductInsert = MakeOptional<
 
 export type UserInsert = MakeOptional<
   Omit<UserRow, 'id' | 'created_at'>,
-  'active' | 'synergy_id' | 'hourly_cost'
+  'active' | 'synergy_id' | 'hourly_cost' | 'must_change_password'
 >
 
 export type EquipmentInsert = MakeOptional<
