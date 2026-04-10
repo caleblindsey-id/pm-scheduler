@@ -98,13 +98,13 @@ export async function PATCH(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
+      const currentStatus = current.status as TicketStatus
+      const nextStatus = filtered.status as TicketStatus
+
       // Techs must use the /complete endpoint to mark tickets complete
       if (isTechnician(user.role) && nextStatus === 'completed') {
         return NextResponse.json({ error: 'Use the complete endpoint to submit ticket completion' }, { status: 403 })
       }
-
-      const currentStatus = current.status as TicketStatus
-      const nextStatus = filtered.status as TicketStatus
       const allowed = VALID_TRANSITIONS[currentStatus] ?? []
 
       if (!allowed.includes(nextStatus)) {
