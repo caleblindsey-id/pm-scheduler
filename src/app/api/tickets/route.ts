@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     const { equipment_id, customer_id, month, year, assigned_technician_id, scheduled_date } = body
 
-    if (!customer_id || !month || !year) {
+    if (!customer_id || !Number.isInteger(customer_id) || customer_id < 1 || !month || !year) {
       return NextResponse.json(
         { error: 'customer_id, month, and year are required' },
         { status: 400 }

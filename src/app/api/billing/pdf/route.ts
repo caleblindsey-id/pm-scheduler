@@ -5,6 +5,7 @@ import { BillingDocument } from '@/lib/pdf/billing-template'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/db/users'
 import { updateAnchorMonth } from '@/lib/db/schedules'
+import { MANAGER_ROLES } from '@/lib/auth'
 
 // ============================================================
 // Types
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const dbUser = await getUser(user.id)
-    if (!dbUser || (dbUser.role !== 'manager' && dbUser.role !== 'coordinator')) {
+    if (!dbUser || !MANAGER_ROLES.includes(dbUser.role!)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -198,6 +199,7 @@ export async function POST(request: NextRequest) {
         pm_schedules(billing_type, flat_rate)
       `)
       .in('id', ticketIds as string[])
+      .eq('status', 'completed')
 
     if (ticketsError) {
       console.error('[billing/pdf] Supabase fetch error:', ticketsError)

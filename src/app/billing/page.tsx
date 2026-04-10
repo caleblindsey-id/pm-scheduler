@@ -1,5 +1,5 @@
 import { getTickets } from '@/lib/db/tickets'
-import { requireRole } from '@/lib/auth'
+import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import BillingExport from './BillingExport'
 
 export default async function BillingPage({
@@ -7,7 +7,7 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<{ month?: string; year?: string }>
 }) {
-  await requireRole('manager', 'coordinator')
+  await requireRole(...MANAGER_ROLES)
   const params = await searchParams
   const now = new Date()
   const month = params.month ? parseInt(params.month) : now.getMonth() + 1

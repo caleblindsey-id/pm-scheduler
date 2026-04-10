@@ -1,6 +1,6 @@
 import { getEquipmentDetail, getEquipmentServiceHistory } from '@/lib/db/equipment'
 import { getUsers } from '@/lib/db/users'
-import { requireRole } from '@/lib/auth'
+import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -16,7 +16,7 @@ export default async function EquipmentDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const user = await requireRole('manager', 'coordinator', 'technician')
+  const user = await requireRole(...MANAGER_ROLES, 'technician')
   const isTech = user.role === 'technician'
   const showBilling = !isTech
   const { id } = await params

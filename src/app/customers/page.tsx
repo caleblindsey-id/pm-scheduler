@@ -1,9 +1,9 @@
 import { getCustomers } from '@/lib/db/customers'
-import { requireRole } from '@/lib/auth'
+import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import CustomerList from './CustomerList'
 
 export default async function CustomersPage() {
-  await requireRole('manager', 'coordinator')
+  await requireRole(...MANAGER_ROLES)
   const customers = await getCustomers() // first 50, ordered by name
 
   return (

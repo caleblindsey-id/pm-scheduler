@@ -4,6 +4,11 @@
 
 export type UserRole = 'super_admin' | 'manager' | 'coordinator' | 'technician'
 
+// Role group constants — importable by both server and client code
+export const MANAGER_ROLES: UserRole[] = ['super_admin', 'manager', 'coordinator']
+export const RESET_ROLES: UserRole[] = ['super_admin', 'manager']
+export const ADMIN_ROLES: UserRole[] = ['super_admin']
+
 export type TicketStatus = 'unassigned' | 'assigned' | 'in_progress' | 'completed' | 'billed' | 'skipped'
 
 export type BillingType = 'flat_rate' | 'time_and_materials' | 'contract'

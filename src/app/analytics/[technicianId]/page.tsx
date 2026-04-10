@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/auth'
+import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import { getTechnicianAnalytics } from '@/lib/db/analytics'
 import TechnicianProfile from './TechnicianProfile'
 
@@ -7,7 +7,7 @@ export default async function TechnicianAnalyticsPage({
 }: {
   params: Promise<{ technicianId: string }>
 }) {
-  await requireRole('manager', 'coordinator')
+  await requireRole(...MANAGER_ROLES)
 
   const { technicianId } = await params
   const today = new Date().toISOString().split('T')[0]

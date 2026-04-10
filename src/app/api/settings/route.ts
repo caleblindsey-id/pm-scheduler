@@ -4,6 +4,11 @@ import { getSetting, setSetting } from '@/lib/db/settings'
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const key = request.nextUrl.searchParams.get('key')
     if (!key) {
       return NextResponse.json({ error: 'key parameter is required' }, { status: 400 })

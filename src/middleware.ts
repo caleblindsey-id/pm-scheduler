@@ -63,8 +63,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Role-based access: read the pm-role cookie (set by layout.tsx on each page load)
-  const role = request.cookies.get('pm-role')?.value
+  // Role-based access: read the pm-role cookie (set by layout.tsx on each page load).
+  // On the first request after login the cookie doesn't exist yet — fall back to a
+  // one-time DB lookup and set the cookies on the response so subsequent requests are fast.
+  let role = request.cookies.get('pm-role')?.value
+  let mustChangePwFromCookie = request.cookies.get('pm-must-change-pw')?.value
+
+  if ((!role || mustChangePwFromCookie === undefined) && session) {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role, must_change_password')
+      .eq('id', session.user.id)
+      .single()
+
+    if (userData) {
+      role = userData.role
+      mustChangePwFromCookie = userData.must_change_password ? 'true' : 'false'
+      const cookieOpts = { httpOnly: true, sameSite: 'strict' as const, path: '/' }
+      supabaseResponse.cookies.set('pm-role', role, cookieOpts)
+      supabaseResponse.cookies.set('pm-must-change-pw', mustChangePwFromCookie, cookieOpts)
+    }
+  }
 
   if (role === 'technician') {
     if (!isTechAllowed(pathname)) {
@@ -78,9 +97,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Force password change if flagged
-  const mustChangePw = request.cookies.get('pm-must-change-pw')?.value
   if (
-    mustChangePw === 'true' &&
+    mustChangePwFromCookie === 'true' &&
     !pathname.startsWith('/change-password') &&
     !pathname.startsWith('/auth/') &&
     !pathname.startsWith('/api/')

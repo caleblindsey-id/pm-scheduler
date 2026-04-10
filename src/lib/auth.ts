@@ -1,11 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/db/users'
-import { UserRow, UserRole } from '@/types/database'
+import { UserRow, UserRole, MANAGER_ROLES, RESET_ROLES, ADMIN_ROLES } from '@/types/database'
 
-export const MANAGER_ROLES: UserRole[] = ['super_admin', 'manager', 'coordinator']
-export const RESET_ROLES: UserRole[] = ['super_admin', 'manager']
-export const ADMIN_ROLES: UserRole[] = ['super_admin']
+export { MANAGER_ROLES, RESET_ROLES, ADMIN_ROLES }
 
 export function isTechnician(role: UserRole | null): boolean {
   if (!role) return false

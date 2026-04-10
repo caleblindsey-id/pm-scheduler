@@ -121,7 +121,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
   const pathname = usePathname()
 
   const isTech = userRole === 'technician'
-  const canSeePricing = userRole === 'manager' || userRole === 'coordinator'
+  const canSeePricing = userRole === 'super_admin' || userRole === 'manager' || userRole === 'coordinator'
 
   // Share work order state
   const [sharing, setSharing] = useState(false)
@@ -592,7 +592,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
     }
   }
 
-  const deleteButton = userRole === 'manager' ? (
+  const deleteButton = (userRole === 'super_admin' || userRole === 'manager') ? (
     <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
       <button
         type="button"
@@ -1033,7 +1033,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
               )}
             </div>
           </form>
-          {userRole === 'manager' && (
+          {(userRole === 'super_admin' || userRole === 'manager') && (
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Manager: Reset ticket status</p>
               <div className="flex gap-2">
@@ -1273,7 +1273,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
           </button>
         </div>
       )}
-      {ticket.status === 'billed' && userRole === 'manager' && (
+      {ticket.status === 'billed' && (userRole === 'super_admin' || userRole === 'manager') && (
         <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Manager: Reset ticket status</p>
           {error && <p className="text-sm text-red-600 mb-2">{error}</p>}

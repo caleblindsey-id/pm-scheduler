@@ -1,9 +1,9 @@
 import { getProducts } from '@/lib/db/products'
-import { requireRole } from '@/lib/auth'
+import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import ProductList from './ProductList'
 
 export default async function ProductsPage() {
-  await requireRole('manager', 'coordinator')
+  await requireRole(...MANAGER_ROLES)
   const products = await getProducts()
   return (
     <div className="p-6 space-y-6">

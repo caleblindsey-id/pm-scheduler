@@ -13,6 +13,10 @@ export async function GET(
     }
 
     const { id } = await params
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!UUID_RE.test(id)) {
+      return NextResponse.json({ error: 'Invalid technician ID' }, { status: 400 })
+    }
     const period = (request.nextUrl.searchParams.get('period') ?? 'monthly') as 'weekly' | 'monthly'
     const date = request.nextUrl.searchParams.get('date') ?? new Date().toISOString().split('T')[0]
 

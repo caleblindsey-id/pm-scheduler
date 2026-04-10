@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import { TicketWithJoins } from '@/lib/db/tickets'
-import { UserRow, TicketStatus } from '@/types/database'
+import { UserRow, TicketStatus, MANAGER_ROLES } from '@/types/database'
 import StatusBadge from '@/components/StatusBadge'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import CreateTicketModal from './CreateTicketModal'
@@ -41,7 +41,7 @@ export default function TicketBoard({
   userRole,
   initialStatus = '',
 }: TicketBoardProps) {
-  const isManager = userRole === 'manager' || userRole === 'coordinator'
+  const isManager = !!userRole && MANAGER_ROLES.includes(userRole)
   const router = useRouter()
   const thisYear = new Date().getFullYear()
 

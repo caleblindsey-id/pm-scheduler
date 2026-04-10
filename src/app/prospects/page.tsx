@@ -1,9 +1,9 @@
 import { getInactiveEquipmentProspects } from '@/lib/db/equipment'
-import { requireRole } from '@/lib/auth'
+import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import ProspectList from './ProspectList'
 
 export default async function ProspectsPage() {
-  await requireRole('manager', 'coordinator')
+  await requireRole(...MANAGER_ROLES)
   const prospects = await getInactiveEquipmentProspects()
 
   return (

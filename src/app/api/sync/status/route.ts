@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser, MANAGER_ROLES } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const user = await getCurrentUser()
+    if (!user?.role || !MANAGER_ROLES.includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const supabase = await createClient()
 
     const { data, error } = await supabase
