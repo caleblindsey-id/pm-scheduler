@@ -43,6 +43,10 @@ const BILLING_TYPES: { value: BillingType; label: string }[] = [
   { value: 'contract', label: 'Contract' },
 ]
 
+// Shared class strings for consistency
+const inputClasses = "w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-500"
+const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+
 interface AddEquipmentModalProps {
   open: boolean
   onClose: () => void
@@ -334,25 +338,25 @@ export default function AddEquipmentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" aria-hidden="true" onClick={handleClose} />
-      <div className="relative bg-white rounded-lg shadow-lg border border-gray-200 p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             Add Equipment
           </h3>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Customer combobox */}
           <div ref={comboRef} className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={labelClasses}>
               Customer
             </label>
             <input
@@ -365,42 +369,42 @@ export default function AddEquipmentModal({
               onFocus={() => { if (customerResults.length > 0) setComboOpen(true) }}
               placeholder="Search by name or account number..."
               autoComplete="off"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className={inputClasses}
             />
             {searching && (
-              <p className="text-xs text-gray-400 mt-1">Searching...</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Searching...</p>
             )}
             {comboOpen && customerResults.length > 0 && (
-              <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-auto text-sm">
+              <ul className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-56 overflow-auto text-sm">
                 {customerResults.map((c) => (
                   <li
                     key={c.id}
                     onMouseDown={() => selectCustomer(c)}
-                    className="px-3 py-2 cursor-pointer hover:bg-slate-50 flex justify-between items-center"
+                    className="px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700 flex justify-between items-center"
                   >
-                    <span className="text-gray-900">{c.name}</span>
+                    <span className="text-gray-900 dark:text-white">{c.name}</span>
                     {c.account_number && (
-                      <span className="text-gray-400 text-xs ml-2 shrink-0">{c.account_number}</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-xs ml-2 shrink-0">{c.account_number}</span>
                     )}
                   </li>
                 ))}
               </ul>
             )}
             {comboOpen && !searching && customerSearch.trim() && customerResults.length === 0 && (
-              <p className="text-xs text-gray-400 mt-1">No customers found.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No customers found.</p>
             )}
           </div>
 
           {/* Ship-To Location */}
           {customerId && shipToLocations.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={labelClasses}>
                 Ship-To Location
               </label>
               <select
                 value={shipToLocationId}
                 onChange={(e) => setShipToLocationId(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className={inputClasses}
               >
                 <option value="">Select location...</option>
                 {shipToLocations.map((loc) => (
@@ -414,99 +418,99 @@ export default function AddEquipmentModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={labelClasses}>
                 Make
               </label>
               <input
                 type="text"
                 value={make}
                 onChange={(e) => setMake(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className={inputClasses}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={labelClasses}>
                 Model
               </label>
               <input
                 type="text"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className={inputClasses}
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={labelClasses}>
               Description
             </label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className={inputClasses}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={labelClasses}>
               Serial Number
             </label>
             <input
               type="text"
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className={inputClasses}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={labelClasses}>
               Location on Site
             </label>
             <input
               type="text"
               value={locationOnSite}
               onChange={(e) => setLocationOnSite(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className={inputClasses}
             />
           </div>
 
           {/* Contact */}
-          <div className="pt-2 border-t border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Contact</label>
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact</label>
             <div className="space-y-2">
               <input
                 type="text"
                 value={contactName}
                 onChange={(e) => setContactName(e.target.value)}
                 placeholder="Name"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className={inputClasses}
               />
               <input
                 type="email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className={inputClasses}
               />
               <input
                 type="tel"
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
                 placeholder="Phone"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className={inputClasses}
               />
             </div>
           </div>
 
           {/* Default Technician */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={labelClasses}>
               Default Technician
             </label>
             <select
               value={defaultTechId}
               onChange={(e) => setDefaultTechId(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className={inputClasses}
             >
               <option value="">None</option>
               {technicians.map((t) => (
@@ -516,25 +520,25 @@ export default function AddEquipmentModal({
           </div>
 
           {/* PM Schedule toggle + fields */}
-          <div className="pt-2 border-t border-gray-200">
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={addSchedule}
                 onChange={(e) => setAddSchedule(e.target.checked)}
-                className="rounded border-gray-300 text-slate-800 focus:ring-slate-500"
+                className="rounded border-gray-300 dark:border-gray-600 text-slate-800 focus:ring-slate-500"
               />
-              <span className="text-sm font-medium text-gray-700">Add PM Schedule</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Add PM Schedule</span>
             </label>
 
             {addSchedule && (
               <div className="mt-3 space-y-3 pl-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                  <label className={labelClasses}>Frequency</label>
                   <select
                     value={intervalMonths}
                     onChange={(e) => setIntervalMonths(parseInt(e.target.value))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    className={inputClasses}
                   >
                     {INTERVAL_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -542,14 +546,14 @@ export default function AddEquipmentModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className={labelClasses}>
                     Starting Month
-                    <span className="text-gray-400 font-normal ml-1">(first month this PM runs)</span>
+                    <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">(first month this PM runs)</span>
                   </label>
                   <select
                     value={anchorMonth}
                     onChange={(e) => setAnchorMonth(parseInt(e.target.value))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    className={inputClasses}
                   >
                     {MONTHS.map((m, i) => (
                       <option key={i + 1} value={i + 1}>{m}</option>
@@ -557,11 +561,11 @@ export default function AddEquipmentModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Billing Type</label>
+                  <label className={labelClasses}>Billing Type</label>
                   <select
                     value={billingType}
                     onChange={(e) => setBillingType(e.target.value as BillingType)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    className={inputClasses}
                   >
                     {BILLING_TYPES.map((b) => (
                       <option key={b.value} value={b.value}>{b.label}</option>
@@ -570,14 +574,14 @@ export default function AddEquipmentModal({
                 </div>
                 {billingType === 'flat_rate' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Flat Rate ($)</label>
+                    <label className={labelClasses}>Flat Rate ($)</label>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={flatRate}
                       onChange={(e) => setFlatRate(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className={inputClasses}
                       placeholder="0.00"
                     />
                   </div>
@@ -587,10 +591,10 @@ export default function AddEquipmentModal({
           </div>
 
           {/* Default Products */}
-          <div className="pt-2 border-t border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Default Products
-              <span className="text-gray-400 font-normal ml-1">(included on every PM at no charge)</span>
+              <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">(included on every PM at no charge)</span>
             </label>
 
             {/* Added products list */}
@@ -599,21 +603,21 @@ export default function AddEquipmentModal({
                 {defaultProducts.map((dp, idx) => (
                   <div
                     key={dp.synergy_product_id}
-                    className="flex items-center gap-2 bg-gray-50 rounded-md px-3 py-2 text-sm"
+                    className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-md px-3 py-2 text-sm"
                   >
-                    <span className="flex-1 text-gray-900 truncate">{dp.description}</span>
+                    <span className="flex-1 text-gray-900 dark:text-white truncate">{dp.description}</span>
                     <button
                       type="button"
                       onClick={() => updateProductQuantity(idx, -1)}
-                      className="p-1 text-gray-400 hover:text-gray-600"
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <Minus className="h-3.5 w-3.5" />
                     </button>
-                    <span className="text-gray-700 font-medium w-6 text-center">{dp.quantity}</span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium w-6 text-center">{dp.quantity}</span>
                     <button
                       type="button"
                       onClick={() => updateProductQuantity(idx, 1)}
-                      className="p-1 text-gray-400 hover:text-gray-600"
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -638,29 +642,29 @@ export default function AddEquipmentModal({
                 onFocus={() => { if (productResults.length > 0) setProductComboOpen(true) }}
                 placeholder="Search products by number or description..."
                 autoComplete="off"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className={inputClasses}
               />
               {productSearching && (
-                <p className="text-xs text-gray-400 mt-1">Searching...</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Searching...</p>
               )}
               {productComboOpen && productResults.length > 0 && (
-                <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-auto text-sm">
+                <ul className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-48 overflow-auto text-sm">
                   {productResults.map((p) => (
                     <li
                       key={p.id}
                       onMouseDown={() => selectProduct(p)}
-                      className="px-3 py-2 cursor-pointer hover:bg-slate-50"
+                      className="px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700"
                     >
-                      <span className="font-medium text-gray-900">{p.number}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{p.number}</span>
                       {p.description && (
-                        <span className="text-gray-500 ml-2">{p.description}</span>
+                        <span className="text-gray-500 dark:text-gray-400 ml-2">{p.description}</span>
                       )}
                     </li>
                   ))}
                 </ul>
               )}
               {productComboOpen && !productSearching && productSearch.trim() && productResults.length === 0 && (
-                <p className="text-xs text-gray-400 mt-1">No products found.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No products found.</p>
               )}
             </div>
           </div>
@@ -669,14 +673,14 @@ export default function AddEquipmentModal({
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-slate-800 dark:bg-slate-700 rounded-md hover:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Creating...' : 'Add Equipment'}
             </button>

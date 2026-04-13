@@ -146,7 +146,7 @@ export default async function TicketDetailPage({
             <span className="text-gray-500 dark:text-gray-400">PO Required</span>
             <p className="text-gray-900 dark:text-white font-medium">
               {ticket.customers?.po_required ? (
-                <span className="text-red-700 font-bold">YES — PO REQUIRED</span>
+                <span className="text-red-700 dark:text-red-400 font-bold">YES — PO REQUIRED</span>
               ) : (
                 'No'
               )}

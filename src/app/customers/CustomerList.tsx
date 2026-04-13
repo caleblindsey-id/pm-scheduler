@@ -129,7 +129,7 @@ export default function CustomerList({ customers }: CustomerListProps) {
                       <td className="px-5 py-3">
                         <button
                           onClick={() => router.push(`/customers/${c.id}`)}
-                          className="text-sm font-medium text-slate-700 hover:text-slate-900"
+                          className="text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                         >
                           View
                         </button>

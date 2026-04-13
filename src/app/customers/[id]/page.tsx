@@ -194,7 +194,7 @@ export default async function CustomerDetailPage({
                     <td className="px-5 py-3 text-gray-900 dark:text-white">
                       <Link
                         href={`/equipment/${e.id}`}
-                        className="text-slate-700 hover:text-slate-900 font-medium"
+                        className="text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium"
                       >
                         {[e.make, e.model].filter(Boolean).join(' ') || '—'}
                       </Link>

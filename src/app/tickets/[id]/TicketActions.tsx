@@ -662,7 +662,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
               }
             }}
             disabled={loading}
-            className="px-3 py-2 text-xs font-medium text-red-700 bg-white border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors"
+            className="px-3 py-2 text-xs font-medium text-red-700 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
           >
             → {target.replace(/_/g, ' ')}
           </button>
@@ -677,7 +677,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
         type="button"
         onClick={handleDelete}
         disabled={loading}
-        className="px-4 py-2 text-xs font-medium text-red-700 bg-white border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors"
+        className="px-4 py-2 text-xs font-medium text-red-700 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
       >
         {loading ? 'Deleting...' : 'Delete Ticket'}
       </button>
@@ -736,7 +736,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                           <span className="font-medium text-gray-900 dark:text-white">{product.number}</span>
                           <span className="text-gray-500 dark:text-gray-400"> — {product.description ?? ''}</span>
                           {options.showPrices && product.unit_price != null && (
-                            <span className="text-green-700 sm:float-right font-medium block sm:inline mt-0.5 sm:mt-0">
+                            <span className="text-green-700 dark:text-green-400 sm:float-right font-medium block sm:inline mt-0.5 sm:mt-0">
                               ${product.unit_price.toFixed(2)}
                             </span>
                           )}
@@ -805,7 +805,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
         <button
           type="button"
           onClick={() => setter((prev) => [...prev, emptyPart()])}
-          className="text-sm font-medium text-slate-700 hover:text-slate-900 py-2 min-h-[44px] sm:min-h-0 flex items-center"
+          className="text-sm font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white py-2 min-h-[44px] sm:min-h-0 flex items-center"
         >
           + Add Part
         </button>
@@ -1121,7 +1121,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                   type="button"
                   onClick={() => { if (confirm('Reset this ticket to Assigned? Draft work will be cleared.')) handleReopen('assigned') }}
                   disabled={loading}
-                  className="px-3 py-2 text-xs font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors"
+                  className="px-3 py-2 text-xs font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors"
                 >
                   Reset to Assigned
                 </button>
@@ -1129,7 +1129,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                   type="button"
                   onClick={() => { if (confirm('Reset this ticket to Unassigned? Draft work and technician assignment will be cleared.')) handleReopen('unassigned') }}
                   disabled={loading}
-                  className="px-3 py-2 text-xs font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors"
+                  className="px-3 py-2 text-xs font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors"
                 >
                   Reset to Unassigned
                 </button>
@@ -1160,7 +1160,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
             <button
               onClick={() => handleReopen('unassigned')}
               disabled={loading}
-              className="px-4 py-3 sm:py-2 text-sm font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors min-h-[44px]"
+              className="px-4 py-3 sm:py-2 text-sm font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors min-h-[44px]"
             >
               {loading ? 'Reopening...' : 'Reopen Ticket'}
             </button>
@@ -1349,7 +1349,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
           <button
             onClick={() => handleReopen('in_progress')}
             disabled={loading}
-            className="px-4 py-3 sm:py-2 text-sm font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors min-h-[44px]"
+            className="px-4 py-3 sm:py-2 text-sm font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors min-h-[44px]"
           >
             {loading ? 'Reopening...' : 'Reopen Ticket'}
           </button>
@@ -1363,28 +1363,28 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
             <button
               onClick={() => { if (confirm('Move back to Completed? Billing export flag will be cleared.')) handleReopen('completed') }}
               disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors"
+              className="px-3 py-2 text-xs font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors"
             >
               Back to Completed
             </button>
             <button
               onClick={() => { if (confirm('Reset to In Progress? All completion data will be cleared.')) handleReopen('in_progress') }}
               disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors"
+              className="px-3 py-2 text-xs font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors"
             >
               Back to In Progress
             </button>
             <button
               onClick={() => { if (confirm('Reset to Assigned? All completion data will be cleared.')) handleReopen('assigned') }}
               disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors"
+              className="px-3 py-2 text-xs font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors"
             >
               Back to Assigned
             </button>
             <button
               onClick={() => { if (confirm('Reset to Unassigned? All data including technician assignment will be cleared.')) handleReopen('unassigned') }}
               disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-orange-700 bg-white border border-orange-300 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors"
+              className="px-3 py-2 text-xs font-medium text-orange-700 dark:text-orange-400 bg-white dark:bg-gray-700 border border-orange-300 dark:border-orange-600 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 transition-colors"
             >
               Back to Unassigned
             </button>

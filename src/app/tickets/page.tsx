@@ -38,13 +38,13 @@ export default async function TicketsPage({
   return (
     <div className="p-6 space-y-6">
       {fetchError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3 text-sm">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-md px-4 py-3 text-sm">
           Unable to load tickets. Check your connection and refresh the page.
         </div>
       )}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Tickets</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Tickets</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Monthly PM ticket board
         </p>
       </div>

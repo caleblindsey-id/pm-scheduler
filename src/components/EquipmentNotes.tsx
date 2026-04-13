@@ -75,25 +75,25 @@ export default function EquipmentNotes({ equipmentId }: { equipmentId: string })
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="px-5 py-4 border-b border-gray-200">
-        <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
           Equipment Notes
         </h2>
       </div>
 
       {/* Add note form */}
-      <form onSubmit={handleSubmit} className="px-5 py-4 border-b border-gray-100">
+      <form onSubmit={handleSubmit} className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
         <textarea
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
           placeholder="Add a note (e.g. common part numbers, quirks, access instructions)..."
           maxLength={2000}
           rows={2}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
         />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-gray-400">{noteText.length}/2000</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{noteText.length}/2000</span>
           <button
             type="submit"
             disabled={!noteText.trim() || submitting}
@@ -106,25 +106,25 @@ export default function EquipmentNotes({ equipmentId }: { equipmentId: string })
       </form>
 
       {error && (
-        <div className="px-5 py-3 text-sm text-red-600 bg-red-50">{error}</div>
+        <div className="px-5 py-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30">{error}</div>
       )}
 
       {/* Notes list */}
       {loading ? (
-        <div className="p-8 text-center text-sm text-gray-500">Loading notes...</div>
+        <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">Loading notes...</div>
       ) : notes.length === 0 ? (
-        <div className="p-8 text-center text-sm text-gray-500">No notes yet.</div>
+        <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">No notes yet.</div>
       ) : (
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {notes.map((note) => (
             <div key={note.id} className="px-5 py-3">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
                   {note.users?.name ?? 'Unknown'}
                 </span>
-                <span className="text-xs text-gray-400">{timeAgo(note.created_at)}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(note.created_at)}</span>
               </div>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.note_text}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{note.note_text}</p>
             </div>
           ))}
         </div>
