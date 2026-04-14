@@ -1,4 +1,5 @@
 import { getEquipmentDetail, getEquipmentServiceHistory } from '@/lib/db/equipment'
+import { getServiceTicketsForEquipment } from '@/lib/db/service-tickets'
 import { getUsers } from '@/lib/db/users'
 import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
@@ -11,6 +12,7 @@ import DefaultProductsSection from './DefaultProductsSection'
 import ServiceHistory from '@/components/ServiceHistory'
 import EquipmentNotes from '@/components/EquipmentNotes'
 import { pmTicketToHistoryItem } from '@/types/service-tickets'
+import type { ServiceHistoryItem } from '@/types/service-tickets'
 
 export default async function EquipmentDetailPage({
   params,
@@ -37,7 +39,34 @@ export default async function EquipmentDetailPage({
 
   if (!equipment) notFound()
 
-  const serviceHistory = await getEquipmentServiceHistory(id)
+  const [pmHistory, svcHistory] = await Promise.all([
+    getEquipmentServiceHistory(id),
+    getServiceTicketsForEquipment(id),
+  ])
+
+  // Merge PM + service tickets into unified timeline
+  const pmItems = pmHistory.map(pmTicketToHistoryItem)
+  const svcItems: ServiceHistoryItem[] = svcHistory.map((t) => ({
+    id: t.id,
+    type: 'service' as const,
+    work_order_number: t.work_order_number,
+    status: t.status,
+    date: t.completed_at,
+    hours_worked: t.hours_worked,
+    parts_count: Array.isArray(t.parts_used) ? t.parts_used.length : 0,
+    billing_amount: t.billing_amount,
+    completion_notes: t.completion_notes,
+    technician_name: t.assigned_technician?.name ?? null,
+    problem_description: t.problem_description,
+    ticket_type: t.ticket_type,
+    billing_type: t.billing_type,
+  }))
+  const allHistory = [...pmItems, ...svcItems].sort((a, b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0
+    const db = b.date ? new Date(b.date).getTime() : 0
+    return db - da
+  })
+
   const activeSchedule = equipment.pm_schedules.find((s) => s.active)
 
   return (
@@ -75,7 +104,7 @@ export default async function EquipmentDetailPage({
         />
       )}
 
-      <ServiceHistory items={serviceHistory.map(pmTicketToHistoryItem)} showBilling={showBilling} />
+      <ServiceHistory items={allHistory} showBilling={showBilling} />
 
       <EquipmentNotes equipmentId={equipment.id} />
     </div>
