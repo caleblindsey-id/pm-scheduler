@@ -89,16 +89,14 @@ export type ServiceTicketRow = {
 }
 
 // --- Insert Type ---
+// Required: customer_id, ticket_type, problem_description
+// Everything else is optional (has DB defaults or is nullable)
 
-export type ServiceTicketInsert = Omit<ServiceTicketRow,
+export type ServiceTicketInsert = Pick<ServiceTicketRow,
+  | 'customer_id' | 'ticket_type' | 'problem_description'
+> & Partial<Omit<ServiceTicketRow,
   | 'id' | 'created_at' | 'updated_at'
-  | 'status' | 'estimate_approved' | 'auto_approved'
-  | 'parts_requested' | 'parts_received' | 'parts_used' | 'photos'
-  | 'warranty_labor_covered' | 'awaiting_pickup' | 'work_order_number'
-> & Partial<Pick<ServiceTicketRow,
-  | 'status' | 'estimate_approved' | 'auto_approved'
-  | 'parts_requested' | 'parts_received' | 'parts_used' | 'photos'
-  | 'warranty_labor_covered' | 'awaiting_pickup' | 'work_order_number'
+  | 'customer_id' | 'ticket_type' | 'problem_description'
 >>
 
 // --- Update Type ---
