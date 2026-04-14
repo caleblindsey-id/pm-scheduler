@@ -104,6 +104,40 @@ const billingTypeLabels: Record<string, string> = {
 
 // ── Component ──
 
+// ── Render helpers (must be outside component to avoid remount on re-render) ──
+
+function Badge({ label, classes }: { label: string; classes: string }) {
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}`}>
+      {label}
+    </span>
+  )
+}
+
+function Card({ title, children, className = '' }: { title?: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
+      {title && (
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+            {title}
+          </h2>
+        </div>
+      )}
+      <div className="p-5">{children}</div>
+    </div>
+  )
+}
+
+function InfoField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <span className="text-gray-500 dark:text-gray-400 text-sm">{label}</span>
+      <p className="text-gray-900 dark:text-white font-medium text-sm">{children}</p>
+    </div>
+  )
+}
+
 export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: ServiceTicketDetailProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -553,39 +587,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
   const equipModel = ticket.equipment?.model ?? ticket.equipment_model
   const equipSerial = ticket.equipment?.serial_number ?? ticket.equipment_serial_number
 
-  // ── Render helpers ──
-
-  function Badge({ label, classes }: { label: string; classes: string }) {
-    return (
-      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}`}>
-        {label}
-      </span>
-    )
-  }
-
-  function Card({ title, children, className = '' }: { title?: string; children: React.ReactNode; className?: string }) {
-    return (
-      <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
-        {title && (
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-              {title}
-            </h2>
-          </div>
-        )}
-        <div className="p-5">{children}</div>
-      </div>
-    )
-  }
-
-  function InfoField({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-      <div>
-        <span className="text-gray-500 dark:text-gray-400 text-sm">{label}</span>
-        <p className="text-gray-900 dark:text-white font-medium text-sm">{children}</p>
-      </div>
-    )
-  }
+  // (Render helpers moved outside component — see Badge, Card, InfoField above)
 
   // ══════════════════════════════════════════════
   // RENDER
