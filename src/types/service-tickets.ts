@@ -84,6 +84,8 @@ export type ServiceTicketRow = {
   awaiting_pickup: boolean
   picked_up_at: string | null
   work_order_number: number | null
+  synergy_validated_at: string | null
+  synergy_validation_status: 'valid' | 'invalid' | 'pending' | null
   created_at: string
   updated_at: string
 }

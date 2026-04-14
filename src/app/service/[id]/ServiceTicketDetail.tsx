@@ -610,6 +610,18 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
         </div>
       )}
 
+      {/* Synergy validation warning */}
+      {ticket.synergy_validation_status === 'invalid' && ticket.synergy_order_number && (
+        <div className="rounded-md bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3 flex items-center gap-2">
+          <svg className="h-5 w-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Synergy order # <strong>{ticket.synergy_order_number}</strong> not found in ERP — verify and correct
+          </p>
+        </div>
+      )}
+
       {/* ── Section 1: Header Badges ── */}
       <div className="flex flex-wrap items-center gap-2">
         <ServiceStatusBadge status={ticket.status} />

@@ -215,6 +215,12 @@ export async function PATCH(
       }
     }
 
+    // --- Reset validation when order number changes ---
+    if (filtered.synergy_order_number !== undefined) {
+      filtered.synergy_validation_status = 'pending'
+      filtered.synergy_validated_at = null
+    }
+
     // --- Parts received check ---
     if (filtered.parts_requested !== undefined) {
       const parts = filtered.parts_requested as PartRequest[]

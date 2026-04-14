@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, AlertTriangle } from 'lucide-react'
 import { UserRow, MANAGER_ROLES } from '@/types/database'
 import { ServiceTicketWithJoins, ServiceTicketStatus, ServicePriority, ServiceTicketType } from '@/types/service-tickets'
 import ServiceStatusBadge from '@/components/ServiceStatusBadge'
@@ -256,6 +256,9 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                         {ticket.work_order_number ? `WO-${ticket.work_order_number}` : '—'}
+                        {ticket.synergy_validation_status === 'invalid' && (
+                          <AlertTriangle className="inline h-3.5 w-3.5 text-red-500 ml-1" />
+                        )}
                       </span>
                       <ServiceStatusBadge status={ticket.status} />
                       <PriorityBadge priority={ticket.priority} />
@@ -307,6 +310,9 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
                     >
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-medium">
                         {ticket.work_order_number ? `WO-${ticket.work_order_number}` : '—'}
+                        {ticket.synergy_validation_status === 'invalid' && (
+                          <AlertTriangle className="inline h-3.5 w-3.5 text-red-500 ml-1" />
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <ServiceStatusBadge status={ticket.status} />
