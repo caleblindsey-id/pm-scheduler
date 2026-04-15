@@ -38,7 +38,6 @@ const STAFF_ALLOWED_FIELDS = [
   'parts_requested',
   'parts_received',
   'synergy_order_number',
-  'synergy_po_number',
   'billing_amount',
   'diagnostic_charge',
   'awaiting_pickup',

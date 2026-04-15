@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import ServiceStatusBadge from '@/components/ServiceStatusBadge'
 import SignaturePad from '@/components/SignaturePad'
+import ReadOnlyPhotos from '@/components/ReadOnlyPhotos'
 import PartsEntryList, { PartEntry, emptyPart, partsFromSaved, toServicePartUsed } from '@/components/service/PartsEntryList'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/image-utils'
@@ -135,7 +136,6 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
   // Billing / Synergy
   const [synergyOrderNumber, setSynergyOrderNumber] = useState(ticket.synergy_order_number ?? '')
-  const [synergyPoNumber, setSynergyPoNumber] = useState(ticket.synergy_po_number ?? '')
   const [diagnosticCharge, setDiagnosticCharge] = useState(
     ticket.diagnostic_charge != null ? String(ticket.diagnostic_charge) : ''
   )
@@ -415,14 +415,12 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     })
   }
 
-  async function handleSaveSynergyPoNumbers(synergyOrder: string, synergyPo: string) {
+  async function handleSaveSynergyOrderNumber(synergyOrder: string) {
     await apiAction(async () => {
       await patchTicket({
         synergy_order_number: synergyOrder || null,
-        synergy_po_number: synergyPo || null,
       })
       setSynergyOrderNumber(synergyOrder)
-      setSynergyPoNumber(synergyPo)
     })
   }
 
@@ -581,25 +579,27 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
       )}
 
       {/* ── Section 1: Header Badges ── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <ServiceStatusBadge status={ticket.status} />
-        {priorityConfig[ticket.priority] && (
-          <Badge {...priorityConfig[ticket.priority]} />
-        )}
-        {ticketTypeConfig[ticket.ticket_type] && (
-          <Badge {...ticketTypeConfig[ticket.ticket_type]} />
-        )}
-        <Badge
-          label={billingTypeLabels[ticket.billing_type] ?? ticket.billing_type}
-          classes="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-        />
-        <span className="text-sm text-gray-500 dark:text-gray-400 ml-auto">
-          Created {new Date(ticket.created_at).toLocaleDateString()}
-          {ticket.assigned_technician && (
-            <> | Assigned to <span className="font-medium text-gray-700 dark:text-gray-300">{ticket.assigned_technician.name}</span></>
+      <Card>
+        <div className="flex flex-wrap items-center gap-2">
+          <ServiceStatusBadge status={ticket.status} />
+          {priorityConfig[ticket.priority] && (
+            <Badge {...priorityConfig[ticket.priority]} />
           )}
-        </span>
-      </div>
+          {ticketTypeConfig[ticket.ticket_type] && (
+            <Badge {...ticketTypeConfig[ticket.ticket_type]} />
+          )}
+          <Badge
+            label={billingTypeLabels[ticket.billing_type] ?? ticket.billing_type}
+            classes="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+          />
+          <span className="text-sm text-gray-500 dark:text-gray-400 ml-auto">
+            Created {new Date(ticket.created_at).toLocaleDateString()}
+            {ticket.assigned_technician && (
+              <> | Assigned to <span className="font-medium text-gray-700 dark:text-gray-300">{ticket.assigned_technician.name}</span></>
+            )}
+          </span>
+        </div>
+      </Card>
 
       {/* ── Section 2: Customer & Equipment Info ── */}
       <Card title="Customer & Equipment">
@@ -934,8 +934,8 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
                   {/* Estimate summary */}
                   {canSeePricing && (
-                    <div className="rounded-lg bg-gray-900 px-4 py-3 max-w-lg">
-                      <div className="text-xs text-gray-400 space-y-0.5">
+                    <div className="rounded-lg bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-3 max-w-lg">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
                         <div className="flex justify-between">
                           <span>Labor: {estimateLaborHours || '0'} hrs x ${laborRate.toFixed(2)}</span>
                           <span>${estLaborTotal.toFixed(2)}</span>
@@ -947,9 +947,9 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                           </div>
                         )}
                       </div>
-                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-700">
-                        <span className="text-base font-bold text-white">Estimate Total</span>
-                        <span className="text-lg font-bold text-white">${estTotal.toFixed(2)}</span>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">
+                        <span className="text-base font-bold text-gray-900 dark:text-white">Estimate Total</span>
+                        <span className="text-lg font-bold text-gray-900 dark:text-white">${estTotal.toFixed(2)}</span>
                       </div>
                     </div>
                   )}
@@ -1127,12 +1127,11 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
             </>
           )}
 
-          {/* Synergy order/PO numbers — staff only */}
-          {isStaff && partsRequested.length > 0 && (
+          {/* Synergy order # — staff only, shown for any ticket that may need billing */}
+          {isStaff && (ticket.status !== 'open' && ticket.status !== 'canceled' && ticket.status !== 'declined') && (
             <SynergyOrderFields
               initialOrder={ticket.synergy_order_number ?? ''}
-              initialPo={ticket.synergy_po_number ?? ''}
-              onSave={handleSaveSynergyPoNumbers}
+              onSave={handleSaveSynergyOrderNumber}
               loading={loading}
             />
           )}
@@ -1141,13 +1140,13 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
       {/* ── Section 6: Action Buttons ── */}
       <Card title="Actions">
-        <div className="flex flex-wrap gap-3">
+        <div className="space-y-3">
           {/* Open: Start Work (skip estimate for warranty/pre-approved) */}
           {ticket.status === 'open' && (ticket.billing_type === 'warranty' || ticket.billing_type === 'partial_warranty') && (
             <button
               onClick={handleStartWork}
               disabled={loading}
-              className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors min-h-[44px]"
+              className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors min-h-[44px]"
             >
               {loading ? 'Starting...' : 'Start Work'}
             </button>
@@ -1164,7 +1163,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                 <button
                   onClick={handleStartWork}
                   disabled={loading}
-                  className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors min-h-[44px]"
+                  className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors min-h-[44px]"
                 >
                   {loading ? 'Starting...' : 'Start Work'}
                 </button>
@@ -1176,7 +1175,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
           {ticket.status === 'in_progress' && !showCompletionForm && (
             <button
               onClick={() => setShowCompletionForm(true)}
-              className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors min-h-[44px]"
+              className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors min-h-[44px]"
             >
               Complete Ticket
             </button>
@@ -1184,21 +1183,16 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
           {/* Completed: Mark Billed (staff only) */}
           {ticket.status === 'completed' && canSeePricing && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
-              <div className="flex items-center gap-2 flex-1">
-                <label className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Synergy Order #</label>
-                <input
-                  type="text"
-                  value={synergyOrderNumber}
-                  onChange={(e) => setSynergyOrderNumber(e.target.value)}
-                  className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                  placeholder="Required"
-                />
-              </div>
+            <div className="space-y-2">
+              {!synergyOrderNumber.trim() && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Enter the Synergy Order # in the Parts section above before billing.
+                </p>
+              )}
               <button
                 onClick={handleMarkBilled}
                 disabled={loading || !synergyOrderNumber.trim()}
-                className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors min-h-[44px]"
+                className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors min-h-[44px]"
               >
                 {loading ? 'Saving...' : 'Mark Billed'}
               </button>
@@ -1210,7 +1204,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
             <button
               onClick={handleTogglePickup}
               disabled={loading}
-              className={`px-4 py-3 sm:py-2 text-sm font-medium rounded-md transition-colors min-h-[44px] ${
+              className={`w-full sm:w-auto px-4 py-3 text-sm font-medium rounded-md transition-colors min-h-[44px] ${
                 ticket.picked_up_at
                   ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-600'
                   : ticket.awaiting_pickup
@@ -1226,7 +1220,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
         {/* Manager actions — always visible */}
         {isManager && (
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Manager Actions</p>
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Manager Actions</p>
             <div className="flex flex-wrap gap-2">
               {ticket.status !== 'open' && ticket.status !== 'canceled' && ticket.status !== 'declined' && (
                 <button
@@ -1290,8 +1284,8 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
             {/* Billing summary — pricing users only */}
             {canSeePricing && (
-              <div className="rounded-lg bg-gray-900 px-4 py-3">
-                <div className="text-xs text-gray-400 space-y-0.5">
+              <div className="rounded-lg bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-3">
+                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
                   <div className="flex justify-between">
                     <span>Labor: {hoursWorked || '0'} hrs x ${laborRate.toFixed(2)}</span>
                     <span>${laborTotal.toFixed(2)}</span>
@@ -1303,9 +1297,9 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                     </div>
                   )}
                 </div>
-                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-700">
-                  <span className="text-base font-bold text-white">Billing Total</span>
-                  <span className="text-lg font-bold text-white">${billingTotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">
+                  <span className="text-base font-bold text-gray-900 dark:text-white">Billing Total</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">${billingTotal.toFixed(2)}</span>
                 </div>
               </div>
             )}
@@ -1504,53 +1498,16 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
 // ── Sub-components ──
 
-function ReadOnlyPhotos({ photos }: { photos: TicketPhoto[] }) {
-  const [urls, setUrls] = useState<string[]>([])
-  useEffect(() => {
-    const supabase = createClient()
-    Promise.all(
-      photos.map(async (p) => {
-        const { data } = await supabase.storage
-          .from('ticket-photos')
-          .createSignedUrl(p.storage_path, 3600)
-        return data?.signedUrl ?? ''
-      })
-    ).then(setUrls)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  if (urls.length === 0 && photos.length > 0) return null
-
-  return (
-    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <span className="text-sm text-gray-500 dark:text-gray-400">Service Photos</span>
-      <div className="mt-2 grid grid-cols-3 gap-2">
-        {urls.map((url, i) => (
-          url ? (
-            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={`Service photo ${i + 1}`} className="w-full h-full object-cover" />
-            </a>
-          ) : null
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function SynergyOrderFields({
   initialOrder,
-  initialPo,
   onSave,
   loading,
 }: {
   initialOrder: string
-  initialPo: string
-  onSave: (order: string, po: string) => Promise<void>
+  onSave: (order: string) => Promise<void>
   loading: boolean
 }) {
   const [order, setOrder] = useState(initialOrder)
-  const [po, setPo] = useState(initialPo)
   const [dirty, setDirty] = useState(false)
 
   return (
@@ -1566,18 +1523,9 @@ function SynergyOrderFields({
             className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
           />
         </div>
-        <div className="flex-1">
-          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">PO #</label>
-          <input
-            type="text"
-            value={po}
-            onChange={(e) => { setPo(e.target.value); setDirty(true) }}
-            className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        </div>
         {dirty && (
           <button
-            onClick={() => { onSave(order, po); setDirty(false) }}
+            onClick={() => { onSave(order); setDirty(false) }}
             disabled={loading}
             className="self-end px-4 py-3 sm:py-2 text-sm font-medium text-white bg-slate-600 rounded-md hover:bg-slate-700 disabled:opacity-50 transition-colors min-h-[44px]"
           >

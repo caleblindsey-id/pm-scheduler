@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, AlertTriangle } from 'lucide-react'
 import { UserRow, MANAGER_ROLES } from '@/types/database'
-import { ServiceTicketWithJoins, ServiceTicketStatus, ServicePriority, ServiceTicketType } from '@/types/service-tickets'
+import { ServiceTicketWithJoins, ServiceTicketStatus, ServicePriority, ServiceTicketType, PartRequest } from '@/types/service-tickets'
 import ServiceStatusBadge from '@/components/ServiceStatusBadge'
 
 const STATUS_OPTIONS: { value: '' | ServiceTicketStatus; label: string }[] = [
@@ -74,6 +74,10 @@ function TypeBadge({ type }: { type: ServiceTicketType }) {
       {c.label}
     </span>
   )
+}
+
+function ticketAgeDays(createdAt: string): number {
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
 }
 
 interface ServiceTicketBoardProps {
@@ -232,6 +236,23 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
         </div>
       )}
 
+      {/* Metric pills */}
+      {!loading && tickets.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: 'Open', count: tickets.filter(t => t.status === 'open').length, color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' },
+            { label: 'Estimated', count: tickets.filter(t => t.status === 'estimated').length, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
+            { label: 'In Progress', count: tickets.filter(t => t.status === 'in_progress').length, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
+            { label: 'Emergency', count: tickets.filter(t => t.priority === 'emergency').length, color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
+            { label: 'Waiting on Parts', count: tickets.filter(t => (t.parts_requested as PartRequest[] | null)?.some((p: PartRequest) => p.status !== 'received')).length, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
+          ].filter(m => m.count > 0).map(m => (
+            <span key={m.label} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${m.color}`}>
+              <span className="font-bold">{m.count}</span> {m.label}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Ticket list */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
@@ -249,7 +270,11 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
               {tickets.map((ticket) => (
                 <div
                   key={ticket.id}
-                  className="px-4 py-3 cursor-pointer active:bg-gray-50 dark:active:bg-gray-700"
+                  className={`px-4 py-3 cursor-pointer active:bg-gray-50 dark:active:bg-gray-700 ${
+                    ticket.priority === 'emergency'
+                      ? 'border-l-4 border-red-500 bg-red-50/50 dark:bg-red-900/10'
+                      : ''
+                  }`}
                   onClick={() => router.push(`/service/${ticket.id}`)}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -278,9 +303,15 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
                     <span className="text-xs text-gray-500 dark:text-gray-400">
                       Tech: {ticket.assigned_technician?.name ?? '—'}
                     </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(ticket.created_at).toLocaleDateString()}
-                    </span>
+                    {(() => {
+                      const age = ticketAgeDays(ticket.created_at)
+                      const isStale = age > 7 && (ticket.status === 'open' || ticket.status === 'estimated')
+                      return (
+                        <span className={`text-xs ${isStale ? 'text-red-500 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {age}d ago
+                        </span>
+                      )
+                    })()}
                   </div>
                 </div>
               ))}
@@ -305,7 +336,11 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
                   {tickets.map((ticket) => (
                     <tr
                       key={ticket.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${
+                        ticket.priority === 'emergency'
+                          ? 'bg-red-50/50 dark:bg-red-900/10'
+                          : ''
+                      }`}
                       onClick={() => router.push(`/service/${ticket.id}`)}
                     >
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-medium">
@@ -334,9 +369,16 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                         {ticket.assigned_technician?.name ?? '—'}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                        {new Date(ticket.created_at).toLocaleDateString()}
-                      </td>
+                      {(() => {
+                        const age = ticketAgeDays(ticket.created_at)
+                        const isStale = age > 7 && (ticket.status === 'open' || ticket.status === 'estimated')
+                        return (
+                          <td className={`px-4 py-3 ${isStale ? 'text-red-500 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+                            {new Date(ticket.created_at).toLocaleDateString()}
+                            {isStale && <span className="ml-1 text-xs">({age}d)</span>}
+                          </td>
+                        )
+                      })()}
                     </tr>
                   ))}
                 </tbody>

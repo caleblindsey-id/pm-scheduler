@@ -276,6 +276,7 @@ export function CreateServiceTicketForm() {
 
   const customerSelected = !!customerId
   const noEquipment = customerSelected && equipmentLoaded && equipment.length === 0
+  const totalSteps = ticketType === 'outside' ? 6 : 5
 
   // --- Shared input classes ---
   const inputClass =
@@ -308,7 +309,10 @@ export function CreateServiceTicketForm() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
           {/* --- Customer --- */}
           <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Customer</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Customer</h2>
+              <span className="text-xs text-gray-400 dark:text-gray-500">1 of {totalSteps}</span>
+            </div>
             <div ref={comboRef} className="relative">
               <label className={labelClass}>
                 Customer <span className="text-red-500">*</span>
@@ -362,13 +366,18 @@ export function CreateServiceTicketForm() {
 
           {/* --- Equipment --- */}
           <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Equipment</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Equipment</h2>
+              <span className="text-xs text-gray-400 dark:text-gray-500">2 of {totalSteps}</span>
+            </div>
             <div>
               <label className={labelClass}>Equipment</label>
               {noEquipment ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500 italic py-2">
-                  No equipment on file for this customer.
-                </p>
+                <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-3 py-2">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    No equipment on file for this customer — enter details below.
+                  </p>
+                </div>
               ) : (
                 <select
                   value={unknownEquipment ? '__unknown__' : equipmentId}
@@ -434,9 +443,10 @@ export function CreateServiceTicketForm() {
 
           {/* --- Ticket Details --- */}
           <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-              Ticket Details
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Ticket Details</h2>
+              <span className="text-xs text-gray-400 dark:text-gray-500">3 of {totalSteps}</span>
+            </div>
 
             {/* Ticket Type — radio buttons */}
             <div>
@@ -520,7 +530,10 @@ export function CreateServiceTicketForm() {
 
           {/* --- Contact --- */}
           <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Contact</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Contact</h2>
+              <span className="text-xs text-gray-400 dark:text-gray-500">4 of {totalSteps}</span>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className={labelClass}>Name</label>
@@ -558,9 +571,10 @@ export function CreateServiceTicketForm() {
           {/* --- Service Address (outside only) --- */}
           {ticketType === 'outside' && (
             <div className="p-4 sm:p-6 space-y-4">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                Service Address
-              </h2>
+              <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Service Address</h2>
+              <span className="text-xs text-gray-400 dark:text-gray-500">5 of {totalSteps}</span>
+            </div>
               <div className="space-y-3">
                 <div>
                   <label className={labelClass}>Address</label>
@@ -612,7 +626,10 @@ export function CreateServiceTicketForm() {
 
           {/* --- Assigned Technician --- */}
           <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Assignment</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Assignment</h2>
+              <span className="text-xs text-gray-400 dark:text-gray-500">{totalSteps} of {totalSteps}</span>
+            </div>
             <div>
               <label className={labelClass}>Assigned Technician</label>
               <select
