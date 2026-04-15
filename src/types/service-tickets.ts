@@ -29,6 +29,7 @@ export interface PartRequest {
   description: string
   quantity: number
   product_number?: string
+  po_number?: string
   status: 'requested' | 'ordered' | 'received'
 }
 
@@ -66,6 +67,9 @@ export type ServiceTicketRow = {
   estimate_approved: boolean
   estimate_approved_at: string | null
   auto_approved: boolean
+  estimate_labor_hours: number | null
+  estimate_labor_rate: number | null
+  estimate_parts: ServicePartUsed[]
   parts_requested: PartRequest[]
   parts_received: boolean
   synergy_order_number: string | null

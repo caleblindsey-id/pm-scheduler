@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import ServiceStatusBadge from '@/components/ServiceStatusBadge'
 import SignaturePad from '@/components/SignaturePad'
+import PartsEntryList, { PartEntry, emptyPart, partsFromSaved, toServicePartUsed } from '@/components/service/PartsEntryList'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/image-utils'
 import type {
@@ -23,66 +24,6 @@ interface ServiceTicketDetailProps {
   userRole: UserRole | null
   userId: string
   laborRate: number
-}
-
-interface ProductResult {
-  id: number
-  synergy_id: string
-  number: string
-  description: string | null
-  unit_price: number | null
-}
-
-interface PartEntry {
-  description: string
-  quantity: number
-  unitPrice: number
-  synergyProductId: number | null
-  isFromDb: boolean
-  searchOpen: boolean
-  searchResults: ProductResult[]
-  searching: boolean
-  warrantyCovered: boolean
-}
-
-// ── Helpers ──
-
-function emptyPart(): PartEntry {
-  return {
-    description: '',
-    quantity: 1,
-    unitPrice: 0,
-    synergyProductId: null,
-    isFromDb: false,
-    searchOpen: false,
-    searchResults: [],
-    searching: false,
-    warrantyCovered: false,
-  }
-}
-
-function partsFromSaved(saved: ServicePartUsed[]): PartEntry[] {
-  return saved.map((p) => ({
-    description: p.description,
-    quantity: p.quantity,
-    unitPrice: p.unit_price,
-    synergyProductId: p.synergy_product_id,
-    isFromDb: p.synergy_product_id != null,
-    searchOpen: false,
-    searchResults: [],
-    searching: false,
-    warrantyCovered: p.warranty_covered ?? false,
-  }))
-}
-
-function toServicePartUsed(entries: PartEntry[]): ServicePartUsed[] {
-  return entries.map((p) => ({
-    synergy_product_id: p.synergyProductId ? Number(p.synergyProductId) : null,
-    description: p.description,
-    quantity: p.quantity,
-    unit_price: p.unitPrice,
-    warranty_covered: p.warrantyCovered,
-  }))
 }
 
 const priorityConfig: Record<string, { label: string; classes: string }> = {
@@ -154,8 +95,13 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
   // Estimate form
   const [showEstimateForm, setShowEstimateForm] = useState(false)
-  const [estimateAmount, setEstimateAmount] = useState(
-    ticket.estimate_amount != null ? String(ticket.estimate_amount) : ''
+  const [estimateLaborHours, setEstimateLaborHours] = useState(
+    ticket.estimate_labor_hours != null ? String(ticket.estimate_labor_hours) : ''
+  )
+  const [estimateParts, setEstimateParts] = useState<PartEntry[]>(
+    ticket.estimate_parts && ticket.estimate_parts.length > 0
+      ? partsFromSaved(ticket.estimate_parts)
+      : []
   )
   const [diagnosisNotes, setDiagnosisNotes] = useState(ticket.diagnosis_notes ?? '')
 
@@ -194,10 +140,6 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     ticket.diagnostic_charge != null ? String(ticket.diagnostic_charge) : ''
   )
 
-  // Product search refs
-  const debounceRefs = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
-  const comboRefs = useRef<Map<number, HTMLDivElement | null>>(new Map())
-
   // Load preview URLs for existing photos
   useEffect(() => {
     if (!photos.length || photos[0]?.previewUrl) return
@@ -211,24 +153,6 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
       })
     ).then(setPhotos)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      comboRefs.current.forEach((el, idx) => {
-        if (el && !el.contains(e.target as Node)) {
-          setCompletionParts((prev) => {
-            if (!prev[idx]?.searchOpen) return prev
-            const updated = [...prev]
-            updated[idx] = { ...updated[idx], searchOpen: false }
-            return updated
-          })
-        }
-      })
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   // ── API Helpers ──
@@ -258,84 +182,6 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     } finally {
       setLoading(false)
     }
-  }
-
-  // ── Product search (for completion parts) ──
-
-  function handlePartSearch(index: number, value: string) {
-    setCompletionParts((prev) => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], description: value, isFromDb: false, synergyProductId: null }
-      return updated
-    })
-
-    const existing = debounceRefs.current.get(index)
-    if (existing) clearTimeout(existing)
-
-    if (!value.trim()) {
-      setCompletionParts((prev) => {
-        const updated = [...prev]
-        if (updated[index]) {
-          updated[index] = { ...updated[index], searchOpen: false, searchResults: [] }
-        }
-        return updated
-      })
-      return
-    }
-
-    debounceRefs.current.set(index, setTimeout(async () => {
-      setCompletionParts((prev) => {
-        const u = [...prev]
-        if (u[index]) u[index] = { ...u[index], searching: true }
-        return u
-      })
-
-      const supabase = createClient()
-      const q = value.trim()
-      const { data } = await supabase
-        .from('products')
-        .select('id, synergy_id, number, description, unit_price')
-        .or(`number.ilike.%${q}%,description.ilike.%${q}%`)
-        .order('number')
-        .limit(25)
-
-      setCompletionParts((prev) => {
-        const u = [...prev]
-        if (u[index]) {
-          u[index] = {
-            ...u[index],
-            searchResults: (data as ProductResult[]) ?? [],
-            searchOpen: true,
-            searching: false,
-          }
-        }
-        return u
-      })
-    }, 300))
-  }
-
-  function handleSelectProduct(index: number, product: ProductResult) {
-    setCompletionParts((prev) => {
-      const updated = [...prev]
-      updated[index] = {
-        ...updated[index],
-        description: `${product.number} - ${product.description ?? ''}`,
-        unitPrice: product.unit_price ?? 0,
-        synergyProductId: Number(product.synergy_id),
-        isFromDb: true,
-        searchOpen: false,
-        searchResults: [],
-      }
-      return updated
-    })
-  }
-
-  function handleClearProduct(index: number) {
-    setCompletionParts((prev) => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], description: '', unitPrice: 0, synergyProductId: null, isFromDb: false }
-      return updated
-    })
   }
 
   // ── Photo handlers ──
@@ -382,18 +228,18 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
   async function handleSubmitEstimate(e: React.FormEvent) {
     e.preventDefault()
-    const amount = parseFloat(estimateAmount)
-    if (isNaN(amount) || amount < 0) {
-      setError('Please enter a valid estimate amount')
+    const hours = parseFloat(estimateLaborHours) || 0
+    if (hours < 0) {
+      setError('Labor hours cannot be negative')
       return
     }
     await apiAction(async () => {
       const result = await patchTicket({
         status: 'estimated',
-        estimate_amount: amount,
+        estimate_labor_hours: hours,
+        estimate_parts: toServicePartUsed(estimateParts),
         diagnosis_notes: diagnosisNotes || null,
       })
-      // If auto-approved, show feedback
       if (result.status === 'approved') {
         setSuccessMsg('Estimate auto-approved (under $100)')
       }
@@ -416,6 +262,76 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     await apiAction(async () => {
       await patchTicket({ status: 'declined' })
     })
+  }
+
+  async function handleDownloadEstimate() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/service-tickets/${ticket.id}/estimate-pdf`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to generate estimate PDF')
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ?? 'estimate.pdf'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download estimate')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleEmailEstimate() {
+    if (!ticket.contact_email) {
+      setError('No contact email on this ticket — add one before emailing the estimate.')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/service-tickets/${ticket.id}/estimate-pdf`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to generate estimate PDF')
+      }
+      const blob = await res.blob()
+      const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ?? 'estimate.pdf'
+
+      // Open mailto with the estimate context — user attaches the downloaded PDF
+      const woLabel = ticket.work_order_number ? `WO-${ticket.work_order_number}` : 'Service'
+      const subject = encodeURIComponent(`${woLabel} — Service Estimate from Imperial Dade`)
+      const body = encodeURIComponent(
+        `Please find attached the service estimate for your review.\n\n` +
+        `This estimate is subject to change. All prices are subject to applicable taxes.\n\n` +
+        `If you have any questions, please don't hesitate to reach out.\n\n` +
+        `Thank you,\nImperial Dade Service Department`
+      )
+      window.open(`mailto:${ticket.contact_email}?subject=${subject}&body=${body}`, '_self')
+
+      // Also download the PDF so they can attach it
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      setSuccessMsg('Email draft opened — attach the downloaded PDF to send.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate estimate')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleSubmitDiagnosticCharge() {
@@ -461,6 +377,18 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     await apiAction(async () => {
       await patchTicket({ parts_requested: updatedParts })
       setPartsRequested(updatedParts)
+    })
+  }
+
+  function handleUpdatePartPo(index: number, poNumber: string) {
+    const updatedParts = [...partsRequested]
+    updatedParts[index] = { ...updatedParts[index], po_number: poNumber || undefined }
+    setPartsRequested(updatedParts)
+  }
+
+  async function handleSavePartPo(index: number) {
+    await apiAction(async () => {
+      await patchTicket({ parts_requested: partsRequested })
     })
   }
 
@@ -574,6 +502,13 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     .reduce((sum, p) => sum + p.quantity * p.unitPrice, 0)
   const laborTotal = (parseFloat(hoursWorked) || 0) * laborRate
   const billingTotal = ticket.billing_type === 'warranty' ? 0 : laborTotal + partsTotal
+
+  // Estimate computed totals
+  const estLaborTotal = (parseFloat(estimateLaborHours) || 0) * laborRate
+  const estPartsTotal = estimateParts
+    .filter((p) => !p.warrantyCovered)
+    .reduce((sum, p) => sum + p.quantity * p.unitPrice, 0)
+  const estTotal = ticket.billing_type === 'warranty' ? 0 : estLaborTotal + estPartsTotal
 
   // Service address
   const serviceAddress = ticket.ticket_type === 'outside'
@@ -706,19 +641,18 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
       {(ticket.status === 'open' || ticket.status === 'estimated' || ticket.status === 'approved' ||
         ticket.status === 'declined' || ticket.estimate_amount != null) && (
         <Card title="Diagnosis & Estimate">
-          {/* Show existing estimate info */}
+          {/* Show existing estimate breakdown */}
           {ticket.estimate_amount != null && (
             <div className="space-y-3 mb-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoField label="Estimate Amount">
-                  ${ticket.estimate_amount.toFixed(2)}
-                  {ticket.auto_approved && (
-                    <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Auto-approved &lt; $100)</span>
-                  )}
-                </InfoField>
+              <div className="flex items-center gap-3 mb-2">
                 <InfoField label="Approval Status">
                   {ticket.estimate_approved ? (
-                    <span className="text-green-600 dark:text-green-400">Approved</span>
+                    <span className="text-green-600 dark:text-green-400">
+                      Approved
+                      {ticket.auto_approved && (
+                        <span className="ml-1 text-xs">(auto &lt; $100)</span>
+                      )}
+                    </span>
                   ) : ticket.status === 'declined' ? (
                     <span className="text-red-600 dark:text-red-400">Declined</span>
                   ) : (
@@ -726,11 +660,65 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                   )}
                 </InfoField>
               </div>
+
+              {/* Itemized breakdown */}
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-900 px-4 py-3">
+                <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  {ticket.estimate_labor_hours != null && ticket.estimate_labor_rate != null && (
+                    <div className="flex justify-between">
+                      <span>Labor: {ticket.estimate_labor_hours} hrs x ${ticket.estimate_labor_rate.toFixed(2)}/hr</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        ${(ticket.estimate_labor_hours * ticket.estimate_labor_rate).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {ticket.estimate_parts && ticket.estimate_parts.length > 0 && (
+                    <>
+                      {ticket.estimate_parts.map((part, i) => (
+                        <div key={i} className="flex justify-between">
+                          <span className="truncate mr-4">
+                            {part.description} x{part.quantity}
+                            {part.warranty_covered && (
+                              <span className="ml-1 text-xs text-green-600 dark:text-green-400">(warranty)</span>
+                            )}
+                          </span>
+                          <span className="font-medium text-gray-900 dark:text-white shrink-0">
+                            {part.warranty_covered ? '$0.00' : `$${(part.quantity * part.unit_price).toFixed(2)}`}
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">Estimate Total</span>
+                  <span className="text-base font-bold text-gray-900 dark:text-white">${ticket.estimate_amount.toFixed(2)}</span>
+                </div>
+              </div>
+
               {ticket.diagnosis_notes && (
                 <InfoField label="Diagnosis Notes">
                   <span className="font-normal whitespace-pre-wrap">{ticket.diagnosis_notes}</span>
                 </InfoField>
               )}
+
+              {/* Download / Email estimate */}
+              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={handleDownloadEstimate}
+                  disabled={loading}
+                  className="px-4 py-3 sm:py-2 text-sm font-medium text-slate-800 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-md hover:bg-slate-50 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors min-h-[44px]"
+                >
+                  Download Estimate PDF
+                </button>
+                <button
+                  onClick={handleEmailEstimate}
+                  disabled={loading}
+                  className="px-4 py-3 sm:py-2 text-sm font-medium text-slate-800 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-md hover:bg-slate-50 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors min-h-[44px]"
+                >
+                  Email Estimate
+                </button>
+              </div>
             </div>
           )}
 
@@ -798,29 +786,65 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                   Submit Estimate
                 </button>
               ) : (
-                <form onSubmit={handleSubmitEstimate} className="space-y-3 mt-3 max-w-lg">
-                  <div>
+                <form onSubmit={handleSubmitEstimate} className="space-y-4 mt-3">
+                  {/* Labor Hours */}
+                  <div className="max-w-lg">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Estimate Amount
+                      Estimated Labor Hours
                     </label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500 dark:text-gray-400">$</span>
+                    <div className="flex items-center gap-3">
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.25"
                         min="0"
-                        required
-                        value={estimateAmount}
-                        onChange={(e) => setEstimateAmount(e.target.value)}
-                        className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                        value={estimateLaborHours}
+                        onChange={(e) => setEstimateLaborHours(e.target.value)}
+                        className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-slate-500"
                         placeholder="0.00"
                       />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        @ ${laborRate.toFixed(2)}/hr
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      Estimates under $100 are auto-approved
-                    </p>
                   </div>
-                  <div>
+
+                  {/* Estimated Parts */}
+                  <PartsEntryList
+                    parts={estimateParts}
+                    setParts={setEstimateParts}
+                    showPricing={canSeePricing}
+                    showWarranty={ticket.billing_type === 'warranty' || ticket.billing_type === 'partial_warranty'}
+                    label="Estimated Parts"
+                  />
+
+                  {/* Estimate summary */}
+                  {canSeePricing && (
+                    <div className="rounded-lg bg-gray-900 px-4 py-3 max-w-lg">
+                      <div className="text-xs text-gray-400 space-y-0.5">
+                        <div className="flex justify-between">
+                          <span>Labor: {estimateLaborHours || '0'} hrs x ${laborRate.toFixed(2)}</span>
+                          <span>${estLaborTotal.toFixed(2)}</span>
+                        </div>
+                        {estimateParts.length > 0 && (
+                          <div className="flex justify-between">
+                            <span>Parts {ticket.billing_type === 'warranty' ? '(warranty — $0)' : ''}</span>
+                            <span>${estPartsTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-700">
+                        <span className="text-base font-bold text-white">Estimate Total</span>
+                        <span className="text-lg font-bold text-white">${estTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    Estimates under $100 are auto-approved
+                  </p>
+
+                  {/* Diagnosis Notes */}
+                  <div className="max-w-lg">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Diagnosis Notes
                     </label>
@@ -832,6 +856,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                       placeholder="Describe the issue found..."
                     />
                   </div>
+
                   <div className="flex gap-2">
                     <button
                       type="submit"
@@ -873,39 +898,57 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                     received: 'text-green-600 dark:text-green-400',
                   }
                   return (
-                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm text-gray-900 dark:text-white font-medium">{part.description}</span>
-                        {part.product_number && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">#{part.product_number}</span>
-                        )}
-                        <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">x{part.quantity}</span>
+                    <div key={i} className="flex flex-col gap-2 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-gray-900 dark:text-white font-medium">{part.description}</span>
+                          {part.product_number && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">#{part.product_number}</span>
+                          )}
+                          <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">x{part.quantity}</span>
+                          {part.po_number && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">PO: {part.po_number}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-medium uppercase ${statusColors[part.status] ?? ''}`}>
+                            {part.status}
+                          </span>
+                          {isStaff && part.status === 'requested' && (
+                            <button
+                              onClick={() => handleUpdatePartStatus(i, 'ordered')}
+                              disabled={loading || !synergyOrderNumber.trim()}
+                              title={!synergyOrderNumber.trim() ? 'Enter Synergy Order # below first' : undefined}
+                              className="px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 min-h-[44px] sm:min-h-0"
+                            >
+                              Mark Ordered
+                            </button>
+                          )}
+                          {isStaff && part.status === 'ordered' && (
+                            <button
+                              onClick={() => handleUpdatePartStatus(i, 'received')}
+                              disabled={loading}
+                              className="px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-600 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 min-h-[44px] sm:min-h-0"
+                            >
+                              Mark Received
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-medium uppercase ${statusColors[part.status] ?? ''}`}>
-                          {part.status}
-                        </span>
-                        {/* Staff can advance part status — order# required to mark ordered */}
-                        {isStaff && part.status === 'requested' && (
-                          <button
-                            onClick={() => handleUpdatePartStatus(i, 'ordered')}
-                            disabled={loading || !synergyOrderNumber.trim()}
-                            title={!synergyOrderNumber.trim() ? 'Enter Synergy Order # below first' : undefined}
-                            className="px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 min-h-[44px] sm:min-h-0"
-                          >
-                            Mark Ordered
-                          </button>
-                        )}
-                        {isStaff && part.status === 'ordered' && (
-                          <button
-                            onClick={() => handleUpdatePartStatus(i, 'received')}
-                            disabled={loading || !synergyOrderNumber.trim()}
-                            className="px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-600 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 min-h-[44px] sm:min-h-0"
-                          >
-                            Mark Received
-                          </button>
-                        )}
-                      </div>
+                      {/* PO number input — staff can enter when marking ordered or after */}
+                      {isStaff && (part.status === 'ordered' || part.status === 'received') && (
+                        <div className="flex items-center gap-2 ml-0 sm:ml-4">
+                          <label className="text-xs text-gray-500 dark:text-gray-400 shrink-0">PO #:</label>
+                          <input
+                            type="text"
+                            value={part.po_number ?? ''}
+                            onChange={(e) => handleUpdatePartPo(i, e.target.value)}
+                            onBlur={() => handleSavePartPo(i)}
+                            placeholder="Enter PO number"
+                            className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-2 py-1 text-xs w-40 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                          />
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -1122,152 +1165,13 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
             </div>
 
             {/* Parts Used */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Parts Used
-              </label>
-              {completionParts.length > 0 && (
-                <div className="space-y-2">
-                  {completionParts.map((part, i) => (
-                    <div key={`part-${i}`} className="rounded-md border border-gray-200 dark:border-gray-700 p-3 space-y-2">
-                      {/* Product search / display */}
-                      <div
-                        className="relative min-w-0"
-                        ref={(el) => { comboRefs.current.set(i, el) }}
-                      >
-                        {part.isFromDb ? (
-                          <div className="flex items-center gap-1 rounded-md border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 px-3 h-[44px] sm:h-[34px] text-sm text-gray-900 dark:text-white">
-                            <span className="flex-1 truncate">{part.description}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleClearProduct(i)}
-                              className="text-gray-400 dark:text-gray-500 hover:text-red-500 shrink-0 p-1"
-                            >
-                              &times;
-                            </button>
-                          </div>
-                        ) : (
-                          <input
-                            type="text"
-                            placeholder="Search products..."
-                            value={part.description}
-                            onChange={(e) => handlePartSearch(i, e.target.value)}
-                            className="w-full rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 h-[44px] sm:h-[34px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                          />
-                        )}
-                        {part.searchOpen && part.searchResults.length > 0 && (
-                          <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                            {part.searchResults.map((product) => (
-                              <button
-                                key={product.id}
-                                type="button"
-                                onClick={() => handleSelectProduct(i, product)}
-                                className="w-full text-left px-3 py-3 sm:py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                              >
-                                <span className="font-medium text-gray-900 dark:text-white">{product.number}</span>
-                                <span className="text-gray-500 dark:text-gray-400"> — {product.description ?? ''}</span>
-                                {product.unit_price != null && (
-                                  <span className="text-green-700 dark:text-green-400 sm:float-right font-medium block sm:inline mt-0.5 sm:mt-0">
-                                    ${product.unit_price.toFixed(2)}
-                                  </span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {part.searchOpen && !part.searching && part.searchResults.length === 0 && part.description.trim() && (
-                          <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg px-3 py-2.5 text-sm text-gray-500 dark:text-gray-400">
-                            No products found — enter details manually
-                          </div>
-                        )}
-                        {part.searching && (
-                          <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg px-3 py-2.5 text-sm text-gray-500 dark:text-gray-400">
-                            Searching...
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Qty, Price, Warranty, Remove */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div>
-                          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Qty</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={part.quantity}
-                            onChange={(e) => {
-                              setCompletionParts((prev) => {
-                                const u = [...prev]
-                                u[i] = { ...u[i], quantity: Number(e.target.value) }
-                                return u
-                              })
-                            }}
-                            className="w-16 rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-2 h-[44px] sm:h-[34px] text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-500"
-                          />
-                        </div>
-                        {canSeePricing && (
-                          <div>
-                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Price</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={part.unitPrice}
-                              onChange={(e) => {
-                                setCompletionParts((prev) => {
-                                  const u = [...prev]
-                                  u[i] = { ...u[i], unitPrice: Number(e.target.value) }
-                                  return u
-                                })
-                              }}
-                              readOnly={part.isFromDb}
-                              className={`w-24 rounded-md border px-2 h-[44px] sm:h-[34px] text-sm text-right focus:outline-none focus:ring-2 focus:ring-slate-500 ${
-                                part.isFromDb ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 cursor-not-allowed dark:text-white' : 'border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600'
-                              }`}
-                            />
-                          </div>
-                        )}
-                        {(ticket.billing_type === 'warranty' || ticket.billing_type === 'partial_warranty') && (
-                          <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 cursor-pointer min-h-[44px] sm:min-h-0">
-                            <input
-                              type="checkbox"
-                              checked={part.warrantyCovered}
-                              onChange={(e) => {
-                                setCompletionParts((prev) => {
-                                  const u = [...prev]
-                                  u[i] = { ...u[i], warrantyCovered: e.target.checked }
-                                  return u
-                                })
-                              }}
-                              className="rounded border-gray-300 dark:border-gray-600"
-                            />
-                            Warranty
-                          </label>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCompletionParts((prev) => prev.filter((_, idx) => idx !== i))
-                            debounceRefs.current.delete(i)
-                            comboRefs.current.delete(i)
-                          }}
-                          className="text-gray-400 dark:text-gray-500 hover:text-red-500 text-xs min-h-[44px] sm:min-h-0 flex items-center px-1 ml-auto"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => setCompletionParts((prev) => [...prev, emptyPart()])}
-                className="text-sm font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white py-2 min-h-[44px] flex items-center"
-              >
-                + Add Part
-              </button>
-            </div>
+            <PartsEntryList
+              parts={completionParts}
+              setParts={setCompletionParts}
+              showPricing={canSeePricing}
+              showWarranty={ticket.billing_type === 'warranty' || ticket.billing_type === 'partial_warranty'}
+              label="Parts Used"
+            />
 
             {/* Billing summary — pricing users only */}
             {canSeePricing && (

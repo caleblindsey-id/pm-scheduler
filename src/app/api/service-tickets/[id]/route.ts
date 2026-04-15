@@ -7,7 +7,9 @@ import {
   SERVICE_VALID_TRANSITIONS,
   SERVICE_MANAGER_ONLY_TARGETS,
   PartRequest,
+  ServicePartUsed,
 } from '@/types/service-tickets'
+import { getSetting } from '@/lib/db/settings'
 
 // Fields staff (manager/coordinator) can update
 const STAFF_ALLOWED_FIELDS = [
@@ -29,7 +31,8 @@ const STAFF_ALLOWED_FIELDS = [
   'equipment_model',
   'equipment_serial_number',
   'diagnosis_notes',
-  'estimate_amount',
+  'estimate_labor_hours',
+  'estimate_parts',
   'estimate_approved',
   'estimate_approved_at',
   'parts_requested',
@@ -46,7 +49,8 @@ const STAFF_ALLOWED_FIELDS = [
 const TECH_ALLOWED_FIELDS = [
   'status',
   'diagnosis_notes',
-  'estimate_amount',
+  'estimate_labor_hours',
+  'estimate_parts',
   'parts_requested',
   'hours_worked',
   'parts_used',
@@ -116,7 +120,7 @@ export async function PATCH(
     const supabase = await createClient()
     const { data: current, error: fetchError } = await supabase
       .from('service_tickets')
-      .select('status, assigned_technician_id, parts_requested, estimate_amount')
+      .select('status, assigned_technician_id, parts_requested, estimate_amount, billing_type')
       .eq('id', id)
       .single()
 
@@ -187,7 +191,7 @@ export async function PATCH(
         }
       }
 
-      // Reopen: clear completion data when going back to 'open'
+      // Reopen: clear completion + estimate data when going back to 'open'
       if (nextStatus === 'open' && ['completed', 'billed', 'in_progress'].includes(currentStatus)) {
         Object.assign(filtered, {
           completed_at: null,
@@ -201,13 +205,45 @@ export async function PATCH(
           started_at: null,
         })
       }
+      if (nextStatus === 'open') {
+        Object.assign(filtered, {
+          estimate_amount: null,
+          estimate_labor_hours: null,
+          estimate_labor_rate: null,
+          estimate_parts: [],
+          estimate_approved: false,
+          estimate_approved_at: null,
+          auto_approved: false,
+          diagnosis_notes: null,
+        })
+      }
     }
 
-    // --- Estimate submission: open → estimated ---
-    if (filtered.status === 'estimated' && filtered.estimate_amount !== undefined) {
-      const amount = parseFloat(String(filtered.estimate_amount))
+    // --- Estimate submission: open → estimated (server computes total) ---
+    if (filtered.status === 'estimated') {
+      const rateStr = await getSetting('labor_rate_per_hour')
+      const laborRate = rateStr ? parseFloat(rateStr) : 75
+
+      const hours = parseFloat(String(filtered.estimate_labor_hours ?? 0))
+      const parts = (filtered.estimate_parts as ServicePartUsed[]) ?? []
+
+      // Snapshot the labor rate at estimate time
+      filtered.estimate_labor_rate = laborRate
+
+      // Compute total — exclude warranty-covered parts for warranty billing
+      const laborTotal = hours * laborRate
+      const billingType = current.billing_type ?? 'time_and_materials'
+      const partsTotal = billingType === 'warranty'
+        ? 0
+        : parts
+            .filter((p: ServicePartUsed) => !p.warranty_covered)
+            .reduce((sum: number, p: ServicePartUsed) => sum + (p.quantity * p.unit_price), 0)
+      const total = laborTotal + partsTotal
+
+      filtered.estimate_amount = total
+
       // Auto-approve estimates under $100
-      if (amount < 100) {
+      if (total < 100) {
         filtered.status = 'approved'
         filtered.estimate_approved = true
         filtered.estimate_approved_at = new Date().toISOString()
