@@ -3,11 +3,45 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
-import { EquipmentWithCustomer } from '@/lib/db/equipment'
+import type { EquipmentListItem } from './page'
 import AddEquipmentModal from './AddEquipmentModal'
 
 interface EquipmentListProps {
-  equipment: EquipmentWithCustomer[]
+  equipment: EquipmentListItem[]
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '—'
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function formatNextService(dateStr: string | null): { text: string; className: string } {
+  if (!dateStr) return { text: '—', className: 'text-gray-400 dark:text-gray-600' }
+
+  const [yearStr, monthStr] = dateStr.split('-')
+  const year = parseInt(yearStr)
+  const month = parseInt(monthStr)
+
+  const now = new Date()
+  const currentMonth = now.getMonth() + 1
+  const currentYear = now.getFullYear()
+
+  const label = new Date(year, month - 1).toLocaleDateString('en-US', {
+    month: 'short',
+    year: 'numeric',
+  })
+
+  if (year < currentYear || (year === currentYear && month < currentMonth)) {
+    return { text: label, className: 'text-red-600 dark:text-red-400 font-medium' }
+  }
+  if (year === currentYear && month === currentMonth) {
+    return { text: label, className: 'text-amber-600 dark:text-amber-400 font-medium' }
+  }
+  return { text: label, className: 'text-gray-600 dark:text-gray-400' }
 }
 
 export default function EquipmentList({ equipment }: EquipmentListProps) {
@@ -81,38 +115,44 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
           <>
             {/* Mobile cards — hidden on desktop */}
             <div className="lg:hidden divide-y divide-gray-100 dark:divide-gray-700">
-              {filtered.map((e) => (
-                <div
-                  key={e.id}
-                  className="px-4 py-3 cursor-pointer active:bg-gray-50 dark:active:bg-gray-700"
-                  onClick={() => router.push(`/equipment/${e.id}`)}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {e.customers?.name ?? '—'}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
+              {filtered.map((e) => {
+                const next = formatNextService(e.nextServiceDate)
+                return (
+                  <div
+                    key={e.id}
+                    className="px-4 py-3 cursor-pointer active:bg-gray-50 dark:active:bg-gray-700"
+                    onClick={() => router.push(`/equipment/${e.id}`)}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {e.customers?.name ?? '—'}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {[e.make, e.model].filter(Boolean).join(' ') || '—'}
+                      {e.serial_number ? ` · S/N: ${e.serial_number}` : ''}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {e.location_on_site && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{e.location_on_site}</span>
+                      )}
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          e.active
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {e.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Last: {formatDate(e.lastServiceDate)} · Next: <span className={next.className}>{next.text}</span>
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {[e.make, e.model].filter(Boolean).join(' ') || '—'}
-                    {e.serial_number ? ` · S/N: ${e.serial_number}` : ''}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {e.location_on_site && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{e.location_on_site}</span>
-                    )}
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        e.active
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {e.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Desktop table — hidden on mobile */}
@@ -124,41 +164,52 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
                     <th className="px-5 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Make / Model</th>
                     <th className="px-5 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Serial Number</th>
                     <th className="px-5 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Location</th>
+                    <th className="px-5 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Last Service</th>
+                    <th className="px-5 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Next Service</th>
                     <th className="px-5 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {filtered.map((e) => (
-                    <tr
-                      key={e.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                      onClick={() => router.push(`/equipment/${e.id}`)}
-                    >
-                      <td className="px-5 py-3 text-gray-900 dark:text-white">
-                        {e.customers?.name ?? '—'}
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
-                        {[e.make, e.model].filter(Boolean).join(' ') || '—'}
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
-                        {e.serial_number ?? '—'}
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
-                        {e.location_on_site ?? '—'}
-                      </td>
-                      <td className="px-5 py-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            e.active
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {e.active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {filtered.map((e) => {
+                    const next = formatNextService(e.nextServiceDate)
+                    return (
+                      <tr
+                        key={e.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                        onClick={() => router.push(`/equipment/${e.id}`)}
+                      >
+                        <td className="px-5 py-3 text-gray-900 dark:text-white">
+                          {e.customers?.name ?? '—'}
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
+                          {[e.make, e.model].filter(Boolean).join(' ') || '—'}
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
+                          {e.serial_number ?? '—'}
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
+                          {e.location_on_site ?? '—'}
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
+                          {formatDate(e.lastServiceDate)}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={next.className}>{next.text}</span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              e.active
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            {e.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
