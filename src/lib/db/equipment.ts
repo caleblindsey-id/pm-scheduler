@@ -3,6 +3,7 @@ import { EquipmentRow, EquipmentInsert, EquipmentProspectRow, PmScheduleRow, PmT
 
 export type EquipmentWithCustomer = EquipmentRow & {
   customers: { name: string } | null
+  pm_schedules: { interval_months: number; anchor_month: number; active: boolean }[]
 }
 
 export type EquipmentDetail = EquipmentRow & {
@@ -19,7 +20,7 @@ export async function getEquipment(filters?: {
 
   let query = supabase
     .from('equipment')
-    .select('*, customers(name)')
+    .select('*, customers(name), pm_schedules(interval_months, anchor_month, active)')
     .order('created_at', { ascending: false })
 
   if (filters?.customerId !== undefined) {
