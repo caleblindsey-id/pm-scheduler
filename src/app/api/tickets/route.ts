@@ -61,10 +61,11 @@ export async function POST(request: NextRequest) {
     // Fetch default products and active PM schedule from equipment
     let defaultParts: Array<{ synergy_product_id: number; quantity: number; description: string; unit_price: number }> = []
     let scheduleId: string | null = null
+    let blanketPo: string | null = null
     if (equipment_id) {
       const { data: equip } = await supabase
         .from('equipment')
-        .select('default_products')
+        .select('default_products, blanket_po_number')
         .eq('id', equipment_id)
         .single()
       if (equip?.default_products && Array.isArray(equip.default_products)) {
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
           unit_price: 0,
         }))
       }
+      blanketPo = (equip as { blanket_po_number?: string | null } | null)?.blanket_po_number ?? null
 
       // Auto-link to the equipment's active PM schedule
       const { data: schedule } = await supabase
@@ -100,6 +102,7 @@ export async function POST(request: NextRequest) {
         year,
         status,
         parts_used: defaultParts,
+        po_number: blanketPo,
         scheduled_date: scheduled_date ?? null,
         created_by_id: user?.id ?? null,
       })

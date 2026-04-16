@@ -24,6 +24,7 @@ export default function EquipmentForm({ equipment, users, shipToLocations, isTec
   const [serialNumber, setSerialNumber] = useState(equipment.serial_number ?? '')
   const [description, setDescription] = useState(equipment.description ?? '')
   const [locationOnSite, setLocationOnSite] = useState(equipment.location_on_site ?? '')
+  const [blanketPoNumber, setBlanketPoNumber] = useState(equipment.blanket_po_number ?? '')
   const [contactName, setContactName] = useState(equipment.contact_name ?? '')
   const [contactEmail, setContactEmail] = useState(equipment.contact_email ?? '')
   const [contactPhone, setContactPhone] = useState(equipment.contact_phone ?? '')
@@ -50,6 +51,7 @@ export default function EquipmentForm({ equipment, users, shipToLocations, isTec
           serial_number: serialNumber || null,
           description: description || null,
           location_on_site: locationOnSite || null,
+          blanket_po_number: blanketPoNumber || null,
           contact_name: contactName || null,
           contact_email: contactEmail || null,
           contact_phone: contactPhone || null,
@@ -100,6 +102,10 @@ export default function EquipmentForm({ equipment, users, shipToLocations, isTec
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location on Site</label>
           <input type="text" value={locationOnSite} onChange={(e) => setLocationOnSite(e.target.value)} disabled={isTech} className="w-full rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Blanket PO Number</label>
+          <input type="text" value={blanketPoNumber} onChange={(e) => setBlanketPoNumber(e.target.value)} disabled={isTech} className="w-full rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact</label>
