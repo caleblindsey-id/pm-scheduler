@@ -415,6 +415,16 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     })
   }
 
+  async function handleResetPartStatus(index: number) {
+    const current = partsRequested[index].status
+    const prev: PartRequest['status'] = current === 'received' ? 'ordered' : 'requested'
+    const updatedParts = partsRequested.map((p, i) => i === index ? { ...p, status: prev } : p)
+    await apiAction(async () => {
+      await patchTicket({ parts_requested: updatedParts })
+      setPartsRequested(updatedParts)
+    })
+  }
+
   async function handleSaveSynergyOrderNumber(synergyOrder: string) {
     await apiAction(async () => {
       await patchTicket({
@@ -1046,6 +1056,16 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                               className="px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-600 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 min-h-[44px] sm:min-h-0"
                             >
                               Mark Received
+                            </button>
+                          )}
+                          {isManager && (part.status === 'ordered' || part.status === 'received') && (
+                            <button
+                              onClick={() => handleResetPartStatus(i)}
+                              disabled={loading}
+                              title={`Reset to ${part.status === 'received' ? 'ordered' : 'requested'}`}
+                              className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 min-h-[44px] sm:min-h-0"
+                            >
+                              ↩ Reset
                             </button>
                           )}
                         </div>

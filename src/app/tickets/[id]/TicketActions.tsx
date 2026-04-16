@@ -379,6 +379,14 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
       return
     }
 
+    const pendingParts = (ticket.parts_requested ?? []).filter(
+      (p: { status: string }) => p.status !== 'received'
+    )
+    if (pendingParts.length > 0) {
+      setError(`Cannot complete: ${pendingParts.length} part(s) are not yet received.`)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {

@@ -1,6 +1,7 @@
 // Service ticket types — separate from PM ticket types in database.ts
 
-import type { PartUsed, TicketPhoto } from './database'
+import type { PartUsed, TicketPhoto, PartRequest } from './database'
+export type { PartRequest } from './database'
 
 // --- Enums ---
 
@@ -22,16 +23,6 @@ export type ServiceBillingType =
 export type ServiceTicketType = 'inside' | 'outside'
 
 export type ServicePriority = 'emergency' | 'standard' | 'low'
-
-// --- Parts Request ---
-
-export interface PartRequest {
-  description: string
-  quantity: number
-  product_number?: string
-  po_number?: string
-  status: 'requested' | 'ordered' | 'received'
-}
 
 // --- Extended PartUsed with warranty flag ---
 

@@ -24,6 +24,8 @@ const ALLOWED_FIELDS = [
   'additional_hours_worked',
   'skip_reason',
   'skip_previous_status',
+  'parts_requested',
+  'synergy_order_number',
 ] as const
 
 // Techs can update status + draft completion fields (save progress)
@@ -42,6 +44,7 @@ const TECH_ALLOWED_FIELDS = [
   'additional_hours_worked',
   'skip_reason',
   'skip_previous_status',
+  'parts_requested',
 ] as const
 
 type AllowedUpdate = Pick<PmTicketRow, typeof ALLOWED_FIELDS[number]>

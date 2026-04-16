@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import StatusBadge from '@/components/StatusBadge'
 import TicketActions from './TicketActions'
+import PmPartsSection from './PmPartsSection'
 import ServiceHistory from '@/components/ServiceHistory'
 import EquipmentNotes from '@/components/EquipmentNotes'
 import { getCurrentUser, isTechnician } from '@/lib/auth'
+import { RESET_ROLES } from '@/types/database'
 import { pmTicketToHistoryItem } from '@/types/service-tickets'
 import { getSetting } from '@/lib/db/settings'
 
@@ -155,6 +157,15 @@ export default async function TicketDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Parts tracking */}
+      <PmPartsSection
+        ticketId={ticket.id}
+        initialPartsRequested={ticket.parts_requested ?? []}
+        initialSynergyOrderNumber={ticket.synergy_order_number ?? null}
+        isTech={isTechnician(user?.role ?? null)}
+        canReset={RESET_ROLES.includes(user?.role ?? ('' as never))}
+      />
 
       {/* Action section */}
       <TicketActions

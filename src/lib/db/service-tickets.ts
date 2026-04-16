@@ -173,6 +173,52 @@ export async function getPartsToOrderCount(): Promise<number> {
   return count ?? 0
 }
 
+// --- Parts on Order: tickets (service + PM) with at least one part in 'ordered' status ---
+
+export async function getPartsOnOrderCount(): Promise<number> {
+  const supabase = await createClient()
+
+  const [serviceResult, pmResult] = await Promise.all([
+    supabase
+      .from('service_tickets')
+      .select('id', { count: 'exact', head: true })
+      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'ordered' }]))
+      .not('status', 'in', '("billed","declined","canceled")'),
+    supabase
+      .from('pm_tickets')
+      .select('id', { count: 'exact', head: true })
+      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'ordered' }]))
+      .not('status', 'in', '("completed","billed","skipped","skip_requested")'),
+  ])
+
+  if (serviceResult.error) throw serviceResult.error
+  if (pmResult.error) throw pmResult.error
+  return (serviceResult.count ?? 0) + (pmResult.count ?? 0)
+}
+
+// --- Parts Ready for Pickup: tickets (service + PM) with at least one part in 'received' status ---
+
+export async function getPartsReadyForPickupCount(): Promise<number> {
+  const supabase = await createClient()
+
+  const [serviceResult, pmResult] = await Promise.all([
+    supabase
+      .from('service_tickets')
+      .select('id', { count: 'exact', head: true })
+      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'received' }]))
+      .not('status', 'in', '("billed","declined","canceled")'),
+    supabase
+      .from('pm_tickets')
+      .select('id', { count: 'exact', head: true })
+      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'received' }]))
+      .not('status', 'in', '("completed","billed","skipped","skip_requested")'),
+  ])
+
+  if (serviceResult.error) throw serviceResult.error
+  if (pmResult.error) throw pmResult.error
+  return (serviceResult.count ?? 0) + (pmResult.count ?? 0)
+}
+
 // --- Get service ticket counts by status (dashboard) ---
 
 export async function getServiceTicketCounts(technicianId?: string) {

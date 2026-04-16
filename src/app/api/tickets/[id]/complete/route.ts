@@ -54,7 +54,7 @@ export async function POST(
     const supabase = await createClient()
     const { data: current, error: fetchError } = await supabase
       .from('pm_tickets')
-      .select('status, assigned_technician_id')
+      .select('status, assigned_technician_id, parts_requested')
       .eq('id', id)
       .single()
 
@@ -71,6 +71,17 @@ export async function POST(
       return NextResponse.json(
         { error: `Ticket is already ${current.status} and cannot be re-completed` },
         { status: 409 }
+      )
+    }
+
+    // Hard block: all requested parts must be received before completing
+    const pendingParts = ((current.parts_requested ?? []) as Array<{ status: string }>).filter(
+      p => p.status !== 'received'
+    )
+    if (pendingParts.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot complete: ${pendingParts.length} part(s) are not yet received.` },
+        { status: 400 }
       )
     }
 

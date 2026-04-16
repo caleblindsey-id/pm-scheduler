@@ -39,6 +39,14 @@ export interface TicketPhoto {
   uploaded_at: string
 }
 
+export interface PartRequest {
+  description: string
+  quantity: number
+  product_number?: string
+  po_number?: string
+  status: 'requested' | 'ordered' | 'received'
+}
+
 // ============================================================
 // Row types (what you get back from SELECT)
 // Note: these must be `type` aliases (not `interface`) so they
@@ -164,6 +172,8 @@ export type PmTicketRow = {
   work_order_number: number
   additional_parts_used: PartUsed[]
   additional_hours_worked: number | null
+  parts_requested: PartRequest[]
+  synergy_order_number: string | null
   skip_reason: string | null
   skip_previous_status: string | null
   created_at: string
@@ -255,7 +265,7 @@ export type PmScheduleInsert = MakeOptional<
 
 export type PmTicketInsert = MakeOptional<
   Omit<PmTicketRow, 'id' | 'created_at' | 'updated_at'>,
-  'status' | 'billing_exported' | 'parts_used' | 'pm_schedule_id' | 'equipment_id' | 'customer_id' | 'assigned_technician_id' | 'created_by_id' | 'scheduled_date' | 'completed_date' | 'completion_notes' | 'hours_worked' | 'billing_amount' | 'work_order_number' | 'additional_parts_used' | 'additional_hours_worked' | 'customer_signature' | 'customer_signature_name' | 'photos' | 'po_number' | 'billing_contact_name' | 'billing_contact_email' | 'billing_contact_phone' | 'skip_reason' | 'skip_previous_status'
+  'status' | 'billing_exported' | 'parts_used' | 'pm_schedule_id' | 'equipment_id' | 'customer_id' | 'assigned_technician_id' | 'created_by_id' | 'scheduled_date' | 'completed_date' | 'completion_notes' | 'hours_worked' | 'billing_amount' | 'work_order_number' | 'additional_parts_used' | 'additional_hours_worked' | 'customer_signature' | 'customer_signature_name' | 'photos' | 'po_number' | 'billing_contact_name' | 'billing_contact_email' | 'billing_contact_phone' | 'skip_reason' | 'skip_previous_status' | 'parts_requested' | 'synergy_order_number'
 >
 
 export type SettingsRow = {
