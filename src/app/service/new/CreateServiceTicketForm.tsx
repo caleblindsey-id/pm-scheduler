@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import CreditHoldBadge from '@/components/CreditHoldBadge'
 import type { EquipmentRow, UserRow, ContactRow, ShipToLocationRow } from '@/types/database'
 import type { ServiceTicketType, ServiceBillingType, ServicePriority } from '@/types/service-tickets'
 
@@ -12,6 +13,7 @@ interface CustomerOption {
   id: number
   name: string
   account_number: string | null
+  credit_hold: boolean
 }
 
 export function CreateServiceTicketForm() {
@@ -22,6 +24,7 @@ export function CreateServiceTicketForm() {
   const [customerResults, setCustomerResults] = useState<CustomerOption[]>([])
   const [customerId, setCustomerId] = useState<number | null>(null)
   const [selectedCustomerName, setSelectedCustomerName] = useState('')
+  const [selectedCustomerCreditHold, setSelectedCustomerCreditHold] = useState(false)
   const [comboOpen, setComboOpen] = useState(false)
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -89,7 +92,7 @@ export function CreateServiceTicketForm() {
       const q = customerSearch.trim()
       const { data } = await supabase
         .from('customers')
-        .select('id, name, account_number')
+        .select('id, name, account_number, credit_hold')
         .or(`name.ilike.%${q}%,account_number.ilike.%${q}%`)
         .eq('active', true)
         .order('name')
@@ -193,6 +196,7 @@ export function CreateServiceTicketForm() {
   function selectCustomer(c: CustomerOption) {
     setCustomerId(c.id)
     setSelectedCustomerName(c.name)
+    setSelectedCustomerCreditHold(c.credit_hold)
     setCustomerSearch(c.account_number ? `${c.name} (${c.account_number})` : c.name)
     setComboOpen(false)
   }
@@ -324,6 +328,7 @@ export function CreateServiceTicketForm() {
                   setCustomerSearch(e.target.value)
                   setCustomerId(null)
                   setSelectedCustomerName('')
+                  setSelectedCustomerCreditHold(false)
                 }}
                 onFocus={() => {
                   if (customerResults.length > 0) setComboOpen(true)
@@ -341,9 +346,12 @@ export function CreateServiceTicketForm() {
                     <li
                       key={c.id}
                       onMouseDown={() => selectCustomer(c)}
-                      className="px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700 flex justify-between items-center"
+                      className="px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700 flex justify-between items-center gap-2"
                     >
-                      <span className="text-gray-900 dark:text-white">{c.name}</span>
+                      <span className="text-gray-900 dark:text-white flex items-center gap-2 min-w-0">
+                        <span className="truncate">{c.name}</span>
+                        {c.credit_hold && <CreditHoldBadge />}
+                      </span>
                       {c.account_number && (
                         <span className="text-gray-400 dark:text-gray-500 text-xs ml-2 shrink-0">
                           {c.account_number}
@@ -356,10 +364,18 @@ export function CreateServiceTicketForm() {
               {comboOpen && !searching && customerSearch.trim() && customerResults.length === 0 && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No customers found.</p>
               )}
-              {customerSelected && (
+              {customerSelected && !selectedCustomerCreditHold && (
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                   Selected: {selectedCustomerName}
                 </p>
+              )}
+              {customerSelected && selectedCustomerCreditHold && (
+                <div className="mt-2 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-800 rounded-md px-3 py-2 flex items-center gap-2">
+                  <CreditHoldBadge />
+                  <span className="text-sm text-red-800 dark:text-red-300 font-semibold">
+                    {selectedCustomerName} is on credit hold.
+                  </span>
+                </div>
               )}
             </div>
           </div>

@@ -107,7 +107,7 @@ export type ServiceTicketUpdate = Partial<Omit<ServiceTicketRow, 'id' | 'created
 // --- Join Types ---
 
 export type ServiceTicketWithJoins = ServiceTicketRow & {
-  customers: { name: string; account_number: string | null } | null
+  customers: { name: string; account_number: string | null; credit_hold: boolean } | null
   equipment: {
     make: string | null
     model: string | null

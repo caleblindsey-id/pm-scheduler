@@ -6,6 +6,7 @@ import { ChevronRight, AlertTriangle } from 'lucide-react'
 import { UserRow, MANAGER_ROLES } from '@/types/database'
 import { ServiceTicketWithJoins, ServiceTicketStatus, ServicePriority, ServiceTicketType, PartRequest } from '@/types/service-tickets'
 import ServiceStatusBadge from '@/components/ServiceStatusBadge'
+import CreditHoldBadge from '@/components/CreditHoldBadge'
 
 const STATUS_OPTIONS: { value: '' | ServiceTicketStatus; label: string }[] = [
   { value: '', label: 'All Statuses' },
@@ -290,9 +291,12 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
                     </div>
                     <ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
                   </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {ticket.customers?.name ?? '—'}
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {ticket.customers?.name ?? '—'}
+                    </p>
+                    {ticket.customers?.credit_hold && <CreditHoldBadge />}
+                  </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {[ticket.equipment?.make, ticket.equipment?.model].filter(Boolean).join(' ') ||
                       [ticket.equipment_make, ticket.equipment_model].filter(Boolean).join(' ') ||
@@ -356,7 +360,10 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
                         <PriorityBadge priority={ticket.priority} />
                       </td>
                       <td className="px-4 py-3 text-gray-900 dark:text-white">
-                        {ticket.customers?.name ?? '—'}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>{ticket.customers?.name ?? '—'}</span>
+                          {ticket.customers?.credit_hold && <CreditHoldBadge />}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                         {[ticket.equipment?.make, ticket.equipment?.model].filter(Boolean).join(' ') ||

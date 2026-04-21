@@ -29,7 +29,7 @@ export async function getServiceTickets(filters?: ServiceTicketFilters): Promise
     .from('service_tickets')
     .select(`
       *,
-      customers ( name, account_number ),
+      customers ( name, account_number, credit_hold ),
       equipment ( make, model, serial_number, description,
         ship_to_locations ( name, address, city, state, zip )
       ),

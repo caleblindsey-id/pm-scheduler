@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import ServiceStatusBadge from '@/components/ServiceStatusBadge'
+import CreditHoldBadge from '@/components/CreditHoldBadge'
 import SignaturePad from '@/components/SignaturePad'
 import ReadOnlyPhotos from '@/components/ReadOnlyPhotos'
 import PartsEntryList, { PartEntry, emptyPart, partsFromSaved, toServicePartUsed } from '@/components/service/PartsEntryList'
@@ -573,6 +574,16 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
       {successMsg && (
         <div className="rounded-md bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-4 py-3">
           <p className="text-sm text-green-700 dark:text-green-300">{successMsg}</p>
+        </div>
+      )}
+
+      {/* Credit hold alert */}
+      {ticket.customers?.credit_hold && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-800 px-4 py-3 flex items-center gap-3">
+          <CreditHoldBadge />
+          <span className="text-sm text-red-800 dark:text-red-300 font-semibold">
+            This customer is on credit hold. Verify with office before dispatching, sending an estimate, or billing.
+          </span>
         </div>
       )}
 
