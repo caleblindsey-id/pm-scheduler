@@ -72,6 +72,35 @@ export async function getTickets(filters?: {
   return data as TicketWithJoins[]
 }
 
+export async function getBillingTickets(
+  month: number,
+  year: number
+): Promise<TicketWithJoins[]> {
+  const supabase = await createClient()
+
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+  const nextMonth = month === 12 ? 1 : month + 1
+  const nextYear = month === 12 ? year + 1 : year
+  const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+
+  const { data, error } = await supabase
+    .from('pm_tickets')
+    .select(`
+      *,
+      customers(name, billing_city, po_required, ar_terms, credit_hold),
+      equipment(make, model, ship_to_locations(city)),
+      users!assigned_technician_id(name),
+      pm_schedules(interval_months, anchor_month)
+    `)
+    .eq('status', 'completed')
+    .gte('completed_date', startDate)
+    .lt('completed_date', endDate)
+    .order('completed_date', { ascending: false })
+
+  if (error) throw error
+  return data as TicketWithJoins[]
+}
+
 export async function getOverdueTicketCount(filters?: {
   technicianId?: string
   now?: Date

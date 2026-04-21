@@ -1,4 +1,4 @@
-import { getTickets } from '@/lib/db/tickets'
+import { getBillingTickets } from '@/lib/db/tickets'
 import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import BillingExport from './BillingExport'
 
@@ -13,7 +13,7 @@ export default async function BillingPage({
   const month = params.month ? parseInt(params.month) : now.getMonth() + 1
   const year = params.year ? parseInt(params.year) : now.getFullYear()
 
-  const tickets = await getTickets({ month, year, status: 'completed' })
+  const tickets = await getBillingTickets(month, year)
   const unexported = tickets.filter((t) => !t.billing_exported)
 
   return (
