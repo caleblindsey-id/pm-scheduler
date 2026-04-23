@@ -88,6 +88,15 @@ export default async function TicketDetailPage({
             <span className="text-gray-500 dark:text-gray-400">Customer</span>
             <p className="text-gray-900 dark:text-white font-medium">
               {ticket.customers?.name ?? '—'}
+              {!isTech && ticket.customer_id && (
+                <Link
+                  href={`/customers/${ticket.customer_id}`}
+                  className="inline-flex items-center ml-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="View customer profile"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </p>
           </div>
           <div>
