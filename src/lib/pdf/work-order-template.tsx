@@ -99,6 +99,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     marginTop: 4,
   },
+  headerWoNumber: {
+    fontSize: 13,
+    fontFamily: 'Helvetica-Bold',
+    color: '#111111',
+    letterSpacing: 0.3,
+  },
+  headerPoLine: {
+    fontSize: 8.5,
+    color: '#444444',
+    marginTop: 1,
+    marginBottom: 6,
+  },
+  headerRightDivider: {
+    width: 180,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#d4d4d4',
+    marginVertical: 4,
+  },
   logo: {
     width: 160,
     height: 50,
@@ -117,21 +135,25 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   sectionLabel: {
-    fontSize: 7,
+    fontSize: 8.5,
     fontFamily: 'Helvetica-Bold',
-    color: '#888888',
-    letterSpacing: 1.2,
+    color: '#111111',
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: 4,
-    marginTop: 12,
+    marginTop: 18,
+    marginBottom: 6,
+    paddingBottom: 3,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#d4d4d4',
   },
   fieldRow: {
     flexDirection: 'row',
     marginBottom: 2,
   },
   fieldLabel: {
-    width: 100,
-    color: '#666666',
+    width: 80,
+    fontSize: 8.5,
+    color: '#555555',
   },
   fieldValue: {
     flex: 1,
@@ -142,11 +164,9 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f7f7f7',
     paddingVertical: 4,
     paddingHorizontal: 6,
-    borderTopWidth: 0.5,
-    borderTopColor: '#cccccc',
     borderBottomWidth: 0.5,
     borderBottomColor: '#cccccc',
   },
@@ -155,7 +175,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#e8e8e8',
+    borderBottomColor: '#eeeeee',
+  },
+  tableRowAlt: {
+    backgroundColor: '#fafafa',
   },
   colProductNum: { width: 70, color: '#111111' },
   colDescription: { flex: 3, color: '#111111' },
@@ -173,40 +196,54 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   signatureBlock: {
-    marginTop: 16,
+    marginTop: 18,
     paddingTop: 10,
     borderTopWidth: 0.5,
     borderTopColor: '#cccccc',
   },
+  signatureDate: {
+    fontSize: 8.5,
+    color: '#555555',
+    marginBottom: 4,
+  },
   signatureImage: {
     height: 50,
-    width: 150,
+    width: 200,
     objectFit: 'contain' as const,
   },
   signatureLine: {
-    borderBottomWidth: 0.5,
+    borderBottomWidth: 0.75,
     borderBottomColor: '#111111',
-    width: 200,
+    width: 220,
     marginTop: 2,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   signatureName: {
-    fontSize: 8,
-    color: '#444444',
-    marginTop: 2,
+    fontSize: 9,
+    color: '#111111',
+    fontFamily: 'Helvetica-Bold',
+  },
+  signatureCaption: {
+    fontSize: 7.5,
+    color: '#888888',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginTop: 1,
   },
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
     marginTop: 4,
   },
   photoImage: {
-    width: 160,
-    height: 120,
-    objectFit: 'contain' as const,
+    width: 164,
+    height: 110,
+    objectFit: 'cover' as const,
     borderWidth: 0.5,
-    borderColor: '#cccccc',
+    borderColor: '#e5e5e5',
+    borderRadius: 2,
+    marginRight: 8,
+    marginBottom: 8,
   },
   footer: {
     position: 'absolute',
@@ -214,9 +251,8 @@ const styles = StyleSheet.create({
     left: 48,
     right: 48,
     textAlign: 'center',
-    fontSize: 7,
-    color: '#aaaaaa',
-    fontStyle: 'italic',
+    fontSize: 7.5,
+    color: '#888888',
     borderTopWidth: 0.5,
     borderTopColor: '#e0e0e0',
     paddingTop: 6,
@@ -229,7 +265,7 @@ const styles = StyleSheet.create({
   },
   pricingHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f7f7f7',
     paddingVertical: 4,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
@@ -240,7 +276,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#e8e8e8',
+    borderBottomColor: '#eeeeee',
+  },
+  pricingRowAlt: {
+    backgroundColor: '#fafafa',
   },
   pricingColDesc: { flex: 3, color: '#111111' },
   pricingColQty: { width: 40, textAlign: 'right', color: '#111111' },
@@ -248,40 +287,42 @@ const styles = StyleSheet.create({
   pricingColTotal: { width: 70, textAlign: 'right', color: '#111111' },
   pricingTotalRow: {
     flexDirection: 'row',
-    backgroundColor: '#111111',
+    backgroundColor: '#f0f0f0',
     paddingVertical: 6,
     paddingHorizontal: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#111111',
   },
   pricingTotalLabel: {
     flex: 1,
-    color: '#ffffff',
+    color: '#111111',
     fontFamily: 'Helvetica-Bold',
     fontSize: 10,
   },
   pricingTotalValue: {
     width: 80,
     textAlign: 'right',
-    color: '#ffffff',
+    color: '#111111',
     fontFamily: 'Helvetica-Bold',
     fontSize: 10,
   },
   disclaimerBox: {
     marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#b91c1c',
-    backgroundColor: '#fef2f2',
+    borderWidth: 0.5,
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
     padding: 8,
   },
   disclaimerHeading: {
     fontFamily: 'Helvetica-Bold',
-    fontSize: 9,
-    color: '#b91c1c',
+    fontSize: 8.5,
+    color: '#92400e',
     marginBottom: 3,
     letterSpacing: 0.5,
   },
   disclaimerBody: {
     fontSize: 8,
-    color: '#7f1d1d',
+    color: '#92400e',
     lineHeight: 1.4,
   },
 })
@@ -376,7 +417,7 @@ function PricingSummarySection({
           <Text style={styles.noPartsText}>No charges</Text>
         ) : (
           rows.map((r, idx) => (
-            <View key={idx} style={styles.pricingRow}>
+            <View key={idx} style={idx % 2 === 1 ? [styles.pricingRow, styles.pricingRowAlt] : styles.pricingRow} wrap={false}>
               <Text style={styles.pricingColDesc}>{r.desc}</Text>
               <Text style={styles.pricingColQty}>{r.qty != null ? String(r.qty) : '—'}</Text>
               <Text style={styles.pricingColRate}>{r.rate != null ? money(r.rate) : '—'}</Text>
@@ -384,12 +425,12 @@ function PricingSummarySection({
             </View>
           ))
         )}
-        <View style={styles.pricingTotalRow}>
+        <View style={styles.pricingTotalRow} wrap={false}>
           <Text style={styles.pricingTotalLabel}>Grand Total</Text>
           <Text style={styles.pricingTotalValue}>{money(pricing.grandTotal)}</Text>
         </View>
       </View>
-      <View style={styles.disclaimerBox}>
+      <View style={styles.disclaimerBox} wrap={false}>
         <Text style={styles.disclaimerHeading}>NOT A FINAL INVOICE</Text>
         <Text style={styles.disclaimerBody}>
           This document is for customer reference only. Final amounts are subject
@@ -422,6 +463,13 @@ export function CustomerWorkOrderDocument({ ticket, logoBase64 }: WorkOrderDocum
             <Text style={styles.subtitle}>Service Work Order</Text>
           </View>
           <View style={styles.headerRight}>
+            <Text style={styles.headerWoNumber}>WO-{ticket.workOrderNumber}</Text>
+            {ticket.poNumber && (
+              <Text style={styles.headerPoLine}>PO: {ticket.poNumber}</Text>
+            )}
+            {(ticket.serviceEmail || ticket.servicePhone || (ticket.technicianName && ticket.technicianName !== '—')) && (
+              <View style={styles.headerRightDivider} />
+            )}
             {ticket.serviceEmail && (
               <Text style={styles.headerContactLine}>{ticket.serviceEmail}</Text>
             )}
@@ -433,18 +481,6 @@ export function CustomerWorkOrderDocument({ ticket, logoBase64 }: WorkOrderDocum
             )}
           </View>
         </View>
-
-        {/* Work Order # */}
-        <View style={styles.fieldRow}>
-          <Text style={styles.fieldLabel}>Work Order #:</Text>
-          <Text style={[styles.fieldValue, { fontFamily: 'Helvetica-Bold' }]}>WO-{ticket.workOrderNumber}</Text>
-        </View>
-        {ticket.poNumber && (
-          <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>PO Number:</Text>
-            <Text style={[styles.fieldValue, { fontFamily: 'Helvetica-Bold' }]}>{ticket.poNumber}</Text>
-          </View>
-        )}
 
         {/* Customer */}
         <Text style={styles.sectionLabel}>Customer</Text>
@@ -464,12 +500,21 @@ export function CustomerWorkOrderDocument({ ticket, logoBase64 }: WorkOrderDocum
         {/* Equipment */}
         <Text style={styles.sectionLabel}>Equipment</Text>
         <View style={styles.fieldRow}>
-          <Text style={styles.fieldValue}>
-            {equipmentLine}
-            {ticket.serialNumber ? `  |  Serial: ${ticket.serialNumber}` : ''}
-            {ticket.locationOnSite ? `  |  Location: ${ticket.locationOnSite}` : ''}
-          </Text>
+          <Text style={styles.fieldLabel}>Make/Model:</Text>
+          <Text style={styles.fieldValue}>{equipmentLine}</Text>
         </View>
+        {ticket.serialNumber && (
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Serial #:</Text>
+            <Text style={styles.fieldValue}>{ticket.serialNumber}</Text>
+          </View>
+        )}
+        {ticket.locationOnSite && (
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Location:</Text>
+            <Text style={styles.fieldValue}>{ticket.locationOnSite}</Text>
+          </View>
+        )}
         {(ticket.equipmentContactName || ticket.equipmentContactEmail || ticket.equipmentContactPhone) && (
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Site Contact:</Text>
@@ -532,7 +577,7 @@ export function CustomerWorkOrderDocument({ ticket, logoBase64 }: WorkOrderDocum
             <Text style={styles.noPartsText}>No PM parts</Text>
           ) : (
             ticket.pmParts.map((part, idx) => (
-              <View key={idx} style={styles.tableRow}>
+              <View key={idx} style={idx % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow} wrap={false}>
                 <Text style={styles.colProductNum}>{part.productNumber ?? '—'}</Text>
                 <Text style={styles.colDescription}>{dash(part.description)}</Text>
                 <Text style={styles.colQty}>{part.quantity}</Text>
@@ -559,7 +604,7 @@ export function CustomerWorkOrderDocument({ ticket, logoBase64 }: WorkOrderDocum
                   <Text style={[styles.colQty, styles.tableHeaderText]}>Qty</Text>
                 </View>
                 {ticket.additionalParts.map((part, idx) => (
-                  <View key={idx} style={styles.tableRow}>
+                  <View key={idx} style={idx % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow} wrap={false}>
                     <Text style={styles.colProductNum}>{part.productNumber ?? '—'}</Text>
                     <Text style={styles.colDescription}>{dash(part.description)}</Text>
                     <Text style={styles.colQty}>{part.quantity}</Text>
@@ -583,20 +628,29 @@ export function CustomerWorkOrderDocument({ ticket, logoBase64 }: WorkOrderDocum
 
         {/* Customer Signature */}
         {ticket.customerSignature && (
-          <View style={styles.signatureBlock}>
+          <View style={styles.signatureBlock} wrap={false}>
             <Text style={styles.sectionLabel}>Customer Acknowledgement</Text>
+            <Text style={styles.signatureDate}>Signed on {dash(ticket.completedDate)}</Text>
             <Image src={ticket.customerSignature} style={styles.signatureImage} />
             <View style={styles.signatureLine} />
             <Text style={styles.signatureName}>
               {ticket.customerSignatureName ?? '—'}
             </Text>
+            <Text style={styles.signatureCaption}>Customer Signature</Text>
           </View>
         )}
 
         {/* Footer */}
-        <Text style={styles.footer} fixed>
-          Customer Copy — Imperial Dade Service Department
-        </Text>
+        <Text
+          style={styles.footer}
+          fixed
+          render={({ pageNumber, totalPages }) => {
+            const left = `WO-${ticket.workOrderNumber}`
+            const center = `Page ${pageNumber} of ${totalPages}`
+            const right = ticket.serviceEmail ?? ticket.companyName
+            return `${left}   ·   ${center}   ·   ${right}`
+          }}
+        />
       </Page>
     </Document>
   )
