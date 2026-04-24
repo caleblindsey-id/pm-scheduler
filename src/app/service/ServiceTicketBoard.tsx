@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, AlertTriangle } from 'lucide-react'
 import { UserRow, MANAGER_ROLES } from '@/types/database'
-import { ServiceTicketWithJoins, ServiceTicketStatus, ServicePriority, ServiceTicketType, PartRequest } from '@/types/service-tickets'
+import { ServiceTicketWithJoins, ServiceTicketStatus, ServicePriority, ServiceTicketType } from '@/types/service-tickets'
 import ServiceStatusBadge from '@/components/ServiceStatusBadge'
 import CreditHoldBadge from '@/components/CreditHoldBadge'
 
@@ -146,7 +146,7 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
   }, [statusFilter, priorityFilter, typeFilter, techFilter, waitingOnParts])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:gap-3">
@@ -232,25 +232,8 @@ export function ServiceTicketBoard({ currentUser }: ServiceTicketBoardProps) {
 
       {/* Error display */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 p-3">
-          <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
-        </div>
-      )}
-
-      {/* Metric pills */}
-      {!loading && tickets.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: 'Open', count: tickets.filter(t => t.status === 'open').length, color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' },
-            { label: 'Estimated', count: tickets.filter(t => t.status === 'estimated').length, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
-            { label: 'In Progress', count: tickets.filter(t => t.status === 'in_progress').length, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
-            { label: 'Emergency', count: tickets.filter(t => t.priority === 'emergency').length, color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
-            { label: 'Waiting on Parts', count: tickets.filter(t => (t.parts_requested as PartRequest[] | null)?.some((p: PartRequest) => p.status !== 'received')).length, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
-          ].filter(m => m.count > 0).map(m => (
-            <span key={m.label} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${m.color}`}>
-              <span className="font-bold">{m.count}</span> {m.label}
-            </span>
-          ))}
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-md px-4 py-3 text-sm">
+          {error}
         </div>
       )}
 
