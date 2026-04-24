@@ -109,8 +109,8 @@ export async function completeServiceTicket(
     parts_used: ServiceTicketRow['parts_used']
     completion_notes: string | null
     billing_amount: number
-    customer_signature: string
-    customer_signature_name: string
+    customer_signature: string | null
+    customer_signature_name: string | null
     photos: ServiceTicketRow['photos']
     warranty_labor_covered?: boolean
   }

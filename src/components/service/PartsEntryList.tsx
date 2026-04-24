@@ -18,11 +18,18 @@ export interface PartEntry {
   quantity: number
   unitPrice: number
   synergyProductId: number | null
+  // Synergy item # (catalog number). Captured when a product is picked from the
+  // product search so downstream flows (e.g. "Request this part" button) can
+  // seed a PartRequest without the tech retyping it.
+  productNumber: string | null
   isFromDb: boolean
   searchOpen: boolean
   searchResults: ProductResult[]
   searching: boolean
   warrantyCovered: boolean
+  // Local flag flipped after the row has been sent to the parts-requested
+  // queue via onRequestPart. Not persisted.
+  alreadyRequested?: boolean
 }
 
 export function emptyPart(): PartEntry {
@@ -31,6 +38,7 @@ export function emptyPart(): PartEntry {
     quantity: 1,
     unitPrice: 0,
     synergyProductId: null,
+    productNumber: null,
     isFromDb: false,
     searchOpen: false,
     searchResults: [],
@@ -45,6 +53,7 @@ export function partsFromSaved(saved: { synergy_product_id?: number | null; desc
     quantity: p.quantity,
     unitPrice: p.unit_price,
     synergyProductId: p.synergy_product_id ?? null,
+    productNumber: null,
     isFromDb: p.synergy_product_id != null,
     searchOpen: false,
     searchResults: [],
@@ -71,9 +80,13 @@ interface PartsEntryListProps {
   showPricing: boolean
   showWarranty: boolean
   label?: string
+  // When provided, each row renders a "Request" button that hands the entry
+  // off to the caller (which creates a PartRequest on the ticket). The caller
+  // is responsible for flipping `alreadyRequested` on success.
+  onRequestPart?: (index: number) => Promise<void>
 }
 
-export default function PartsEntryList({ parts, setParts, showPricing, showWarranty, label = 'Parts' }: PartsEntryListProps) {
+export default function PartsEntryList({ parts, setParts, showPricing, showWarranty, label = 'Parts', onRequestPart }: PartsEntryListProps) {
   const debounceRefs = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
   const comboRefs = useRef<Map<number, HTMLDivElement | null>>(new Map())
 
@@ -98,7 +111,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
   function handlePartSearch(index: number, value: string) {
     setParts((prev) => {
       const updated = [...prev]
-      updated[index] = { ...updated[index], description: value, isFromDb: false, synergyProductId: null }
+      updated[index] = { ...updated[index], description: value, isFromDb: false, synergyProductId: null, productNumber: null }
       return updated
     })
 
@@ -155,6 +168,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
         description: `${product.number} - ${product.description ?? ''}`,
         unitPrice: product.unit_price ?? 0,
         synergyProductId: Number(product.synergy_id),
+        productNumber: product.number,
         isFromDb: true,
         searchOpen: false,
         searchResults: [],
@@ -166,7 +180,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
   function handleClearProduct(index: number) {
     setParts((prev) => {
       const updated = [...prev]
-      updated[index] = { ...updated[index], description: '', unitPrice: 0, synergyProductId: null, isFromDb: false }
+      updated[index] = { ...updated[index], description: '', unitPrice: 0, synergyProductId: null, productNumber: null, isFromDb: false }
       return updated
     })
   }
@@ -294,6 +308,23 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
                     Warranty
                   </label>
                 )}
+                {onRequestPart && (
+                  part.alreadyRequested ? (
+                    <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400 px-2 min-h-[44px] sm:min-h-0">
+                      ✓ Requested
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!part.description.trim()}
+                      onClick={() => onRequestPart(i)}
+                      title={!part.description.trim() ? 'Add a part description first' : 'Request this part to be ordered'}
+                      className="ml-auto px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0 transition-colors"
+                    >
+                      Request
+                    </button>
+                  )
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -301,7 +332,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
                     debounceRefs.current.delete(i)
                     comboRefs.current.delete(i)
                   }}
-                  className="text-gray-400 dark:text-gray-500 hover:text-red-500 text-xs min-h-[44px] sm:min-h-0 flex items-center px-1 ml-auto"
+                  className={`text-gray-400 dark:text-gray-500 hover:text-red-500 text-xs min-h-[44px] sm:min-h-0 flex items-center px-1 ${onRequestPart ? '' : 'ml-auto'}`}
                 >
                   Remove
                 </button>

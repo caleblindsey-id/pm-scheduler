@@ -12,6 +12,7 @@ import PartsEntryList, { PartEntry, emptyPart, partsFromSaved, toServicePartUsed
 import PartSynergyPicker from '@/components/PartSynergyPicker'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/image-utils'
+import { getPublicAppUrl } from '@/lib/urls'
 import type {
   ServiceTicketDetail as ServiceTicketDetailType,
   ServiceTicketStatus,
@@ -114,6 +115,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
   const [newPartDesc, setNewPartDesc] = useState('')
   const [newPartQty, setNewPartQty] = useState('1')
   const [newPartNumber, setNewPartNumber] = useState('')
+  const [newPartVendorItemCode, setNewPartVendorItemCode] = useState('')
 
   // Completion form
   const [showCompletionForm, setShowCompletionForm] = useState(false)
@@ -141,6 +143,15 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
   const [diagnosticCharge, setDiagnosticCharge] = useState(
     ticket.diagnostic_charge != null ? String(ticket.diagnostic_charge) : ''
   )
+  const [diagnosticInvoiceNumber, setDiagnosticInvoiceNumber] = useState(
+    ticket.diagnostic_invoice_number ?? ''
+  )
+
+  // Contact edit state — staff can update name/email/phone after submission
+  const [editingContact, setEditingContact] = useState(false)
+  const [contactDraftName, setContactDraftName] = useState(ticket.contact_name ?? '')
+  const [contactDraftEmail, setContactDraftEmail] = useState(ticket.contact_email ?? '')
+  const [contactDraftPhone, setContactDraftPhone] = useState(ticket.contact_phone ?? '')
 
   // Load preview URLs for existing photos
   useEffect(() => {
@@ -310,7 +321,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
         throw new Error(errData.error || 'Failed to generate approval token')
       }
       const tokenData = await tokenRes.json()
-      const approvalUrl = `${window.location.origin}/approve/${tokenData.approval_token}`
+      const approvalUrl = `${getPublicAppUrl()}/approve/${tokenData.approval_token}`
 
       // Generate estimate PDF
       const res = await fetch(`/api/service-tickets/${ticket.id}/estimate-pdf`, { method: 'POST' })
@@ -359,15 +370,46 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     }
   }
 
+  async function handleSaveContact() {
+    const name = contactDraftName.trim()
+    const email = contactDraftEmail.trim()
+    const phone = contactDraftPhone.trim()
+    await apiAction(async () => {
+      await patchTicket({
+        contact_name: name || null,
+        contact_email: email || null,
+        contact_phone: phone || null,
+      })
+      setEditingContact(false)
+      setSuccessMsg('Contact updated')
+    })
+  }
+
+  function handleCancelContactEdit() {
+    setContactDraftName(ticket.contact_name ?? '')
+    setContactDraftEmail(ticket.contact_email ?? '')
+    setContactDraftPhone(ticket.contact_phone ?? '')
+    setEditingContact(false)
+  }
+
   async function handleSubmitDiagnosticCharge() {
-    const amount = parseFloat(diagnosticCharge)
-    if (isNaN(amount) || amount < 0) {
-      setError('Please enter a valid diagnostic charge')
-      return
+    const trimmedAmount = diagnosticCharge.trim()
+    const trimmedInvoice = diagnosticInvoiceNumber.trim()
+    let amount: number | null = null
+    if (trimmedAmount) {
+      const parsed = parseFloat(trimmedAmount)
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setError('Please enter a valid diagnostic charge')
+        return
+      }
+      amount = parsed
     }
     await apiAction(async () => {
-      await patchTicket({ diagnostic_charge: amount })
-      setSuccessMsg('Diagnostic charge saved')
+      await patchTicket({
+        diagnostic_charge: amount,
+        diagnostic_invoice_number: trimmedInvoice || null,
+      })
+      setSuccessMsg('Diagnostic fee saved')
     })
   }
 
@@ -377,12 +419,36 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     })
   }
 
+  async function handleRequestEstimatePart(index: number) {
+    const entry = estimateParts[index]
+    if (!entry || !entry.description.trim() || entry.alreadyRequested) return
+    const newPart: PartRequest = {
+      description: entry.description.trim(),
+      quantity: entry.quantity || 1,
+      product_number: entry.productNumber?.trim() || undefined,
+      synergy_product_id: entry.synergyProductId ?? undefined,
+      status: 'requested',
+      requested_at: new Date().toISOString(),
+    }
+    const updatedRequests = [...partsRequested, newPart]
+    await apiAction(async () => {
+      await patchTicket({ parts_requested: updatedRequests })
+      setPartsRequested(updatedRequests)
+      setEstimateParts((prev) => {
+        const u = [...prev]
+        if (u[index]) u[index] = { ...u[index], alreadyRequested: true }
+        return u
+      })
+    })
+  }
+
   async function handleAddPartRequest() {
     if (!newPartDesc.trim()) return
     const newPart: PartRequest = {
       description: newPartDesc.trim(),
       quantity: parseInt(newPartQty) || 1,
       product_number: newPartNumber.trim() || undefined,
+      vendor_item_code: newPartVendorItemCode.trim() || undefined,
       status: 'requested',
       requested_at: new Date().toISOString(),
     }
@@ -393,6 +459,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
       setNewPartDesc('')
       setNewPartQty('1')
       setNewPartNumber('')
+      setNewPartVendorItemCode('')
       setShowAddPart(false)
     })
   }
@@ -445,6 +512,18 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     })
   }
 
+  function handleUpdatePartVendorItemCode(index: number, code: string) {
+    const updatedParts = [...partsRequested]
+    updatedParts[index] = { ...updatedParts[index], vendor_item_code: code || undefined }
+    setPartsRequested(updatedParts)
+  }
+
+  async function handleSavePartVendorItemCode() {
+    await apiAction(async () => {
+      await patchTicket({ parts_requested: partsRequested })
+    })
+  }
+
   async function handleResetPartStatus(index: number) {
     const current = partsRequested[index].status
     const prev: PartRequest['status'] = current === 'received' ? 'ordered' : 'requested'
@@ -467,7 +546,8 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
   async function handleComplete(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!signatureImage || !signatureName.trim()) {
+    const signatureRequired = ticket.ticket_type !== 'inside'
+    if (signatureRequired && (!signatureImage || !signatureName.trim())) {
       setError('Customer signature and printed name are required.')
       return
     }
@@ -487,8 +567,8 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
           hours_worked: hours,
           parts_used: toServicePartUsed(completionParts),
           completion_notes: completionNotes || null,
-          customer_signature: signatureImage,
-          customer_signature_name: signatureName.trim(),
+          customer_signature: signatureImage || null,
+          customer_signature_name: signatureName.trim() || null,
           photos: photos.map(({ storage_path, uploaded_at }) => ({ storage_path, uploaded_at })),
         }),
       })
@@ -678,16 +758,97 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
           <InfoField label="Serial Number">
             {equipSerial ?? '—'}
           </InfoField>
-          {ticket.contact_name && (
+          {/* Contact — staff can edit; techs see read-only */}
+          {isStaff ? (
             <InfoField label="Contact">
-              {ticket.contact_name}
-              {ticket.contact_email && <span className="text-gray-500 dark:text-gray-400"> | {ticket.contact_email}</span>}
-              {ticket.contact_phone && <span className="text-gray-500 dark:text-gray-400"> | {ticket.contact_phone}</span>}
+              {editingContact ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={contactDraftName}
+                    onChange={(e) => setContactDraftName(e.target.value)}
+                    placeholder="Contact name"
+                    className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-2 py-1 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
+                  <input
+                    type="email"
+                    value={contactDraftEmail}
+                    onChange={(e) => setContactDraftEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-2 py-1 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
+                  <input
+                    type="tel"
+                    value={contactDraftPhone}
+                    onChange={(e) => setContactDraftPhone(e.target.value)}
+                    placeholder="(205) 555-1234"
+                    className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-2 py-1 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveContact}
+                      disabled={loading}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-slate-600 rounded-md hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                    >
+                      {loading ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelContactEdit}
+                      disabled={loading}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    {ticket.contact_name || ticket.contact_email || ticket.contact_phone ? (
+                      <>
+                        {ticket.contact_name ?? ''}
+                        {ticket.contact_email && <span className="text-gray-500 dark:text-gray-400"> | {ticket.contact_email}</span>}
+                        {ticket.contact_phone && <span className="text-gray-500 dark:text-gray-400"> | {ticket.contact_phone}</span>}
+                      </>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500 italic">No contact on file</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingContact(true)}
+                    className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
             </InfoField>
+          ) : (
+            (ticket.contact_name || ticket.contact_email || ticket.contact_phone) && (
+              <InfoField label="Contact">
+                {ticket.contact_name ?? ''}
+                {ticket.contact_email && <span className="text-gray-500 dark:text-gray-400"> | {ticket.contact_email}</span>}
+                {ticket.contact_phone && <span className="text-gray-500 dark:text-gray-400"> | {ticket.contact_phone}</span>}
+              </InfoField>
+            )
           )}
           {serviceAddress && (
             <InfoField label="Service Address">
               {serviceAddress}
+            </InfoField>
+          )}
+          {isTech && (ticket.diagnostic_charge != null || ticket.diagnostic_invoice_number) && (
+            <InfoField label="Diagnostic Billed">
+              {ticket.diagnostic_charge != null && `$${ticket.diagnostic_charge.toFixed(2)}`}
+              {ticket.diagnostic_invoice_number && (
+                <>
+                  {ticket.diagnostic_charge != null && ' '}
+                  on invoice #{ticket.diagnostic_invoice_number}
+                </>
+              )}
             </InfoField>
           )}
           {ticket.customers?.po_required && (
@@ -824,13 +985,13 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                         <input
                           type="text"
                           readOnly
-                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/approve/${ticket.approval_token}`}
+                          value={`${getPublicAppUrl()}/approve/${ticket.approval_token}`}
                           className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-2 text-xs w-full focus:outline-none"
                         />
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/approve/${ticket.approval_token}`)
+                            navigator.clipboard.writeText(`${getPublicAppUrl()}/approve/${ticket.approval_token}`)
                             setSuccessMsg('Approval link copied to clipboard')
                           }}
                           className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-md hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors shrink-0"
@@ -907,23 +1068,42 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
             </div>
           )}
 
-          {/* Diagnostic charge for declined tickets */}
-          {ticket.status === 'declined' && isStaff && (
+          {/* Diagnostic fee — staff can capture / edit anytime while the ticket is live */}
+          {isStaff && ticket.status !== 'billed' && ticket.status !== 'canceled' && (
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Diagnostic Charge
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 dark:text-gray-400">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={diagnosticCharge}
-                  onChange={(e) => setDiagnosticCharge(e.target.value)}
-                  className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                  placeholder="0.00"
-                />
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Diagnostic Fee <span className="normal-case font-normal text-gray-400 dark:text-gray-500">(if billed separately in Synergy)</span>
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Synergy Invoice #
+                  </label>
+                  <input
+                    type="text"
+                    value={diagnosticInvoiceNumber}
+                    onChange={(e) => setDiagnosticInvoiceNumber(e.target.value)}
+                    placeholder="e.g. 612978"
+                    className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Amount
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-500 dark:text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={diagnosticCharge}
+                      onChange={(e) => setDiagnosticCharge(e.target.value)}
+                      placeholder="0.00"
+                      className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 py-3 sm:py-2 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    />
+                  </div>
+                </div>
                 <button
                   onClick={handleSubmitDiagnosticCharge}
                   disabled={loading}
@@ -932,9 +1112,11 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                   Save
                 </button>
               </div>
-              {ticket.diagnostic_charge != null && (
+              {(ticket.diagnostic_charge != null || ticket.diagnostic_invoice_number) && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Current charge: ${ticket.diagnostic_charge.toFixed(2)}
+                  Current:
+                  {ticket.diagnostic_charge != null && ` $${ticket.diagnostic_charge.toFixed(2)}`}
+                  {ticket.diagnostic_invoice_number && ` on invoice #${ticket.diagnostic_invoice_number}`}
                 </p>
               )}
             </div>
@@ -980,6 +1162,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                     showPricing={canSeePricing}
                     showWarranty={ticket.billing_type === 'warranty' || ticket.billing_type === 'partial_warranty'}
                     label="Estimated Parts"
+                    onRequestPart={handleRequestEstimatePart}
                   />
 
                   {/* Estimate summary */}
@@ -1135,6 +1318,21 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                         </div>
                       )}
 
+                      {/* Vendor item code — staff only, free text */}
+                      {!part.cancelled && isStaff && (
+                        <div className="flex items-center gap-2 ml-0 sm:ml-4">
+                          <label className="text-xs text-gray-500 dark:text-gray-400 shrink-0">Vendor item #:</label>
+                          <input
+                            type="text"
+                            value={part.vendor_item_code ?? ''}
+                            onChange={(e) => handleUpdatePartVendorItemCode(i, e.target.value)}
+                            onBlur={() => handleSavePartVendorItemCode()}
+                            placeholder="Manufacturer / vendor part #"
+                            className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-2 py-1 text-xs w-48 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                          />
+                        </div>
+                      )}
+
                       {/* PO number input — staff can enter when marking ordered or after */}
                       {!part.cancelled && isStaff && (part.status === 'ordered' || part.status === 'received') && (
                         <div className="flex items-center gap-2 ml-0 sm:ml-4">
@@ -1188,10 +1386,17 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                       type="text"
                       value={newPartNumber}
                       onChange={(e) => setNewPartNumber(e.target.value)}
-                      placeholder="Product # (optional)"
+                      placeholder="Synergy item # (optional)"
                       className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-3 sm:py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-slate-500"
                     />
                   </div>
+                  <input
+                    type="text"
+                    value={newPartVendorItemCode}
+                    onChange={(e) => setNewPartVendorItemCode(e.target.value)}
+                    placeholder="Vendor item # (optional)"
+                    className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-3 sm:py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
                   <div className="flex gap-2">
                     <button
                       onClick={handleAddPartRequest}
@@ -1201,7 +1406,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                       {loading ? 'Adding...' : 'Add Part'}
                     </button>
                     <button
-                      onClick={() => { setShowAddPart(false); setNewPartDesc(''); setNewPartQty('1'); setNewPartNumber('') }}
+                      onClick={() => { setShowAddPart(false); setNewPartDesc(''); setNewPartQty('1'); setNewPartNumber(''); setNewPartVendorItemCode('') }}
                       className="px-4 py-3 sm:py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors min-h-[44px]"
                     >
                       Cancel
@@ -1448,13 +1653,15 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
               />
             </div>
 
-            {/* Customer Signature */}
-            <SignaturePad
-              onSignatureChange={({ image, name: sigName }) => {
-                setSignatureImage(image)
-                setSignatureName(sigName)
-              }}
-            />
+            {/* Customer Signature — not required for inside (shop) tickets */}
+            {ticket.ticket_type !== 'inside' && (
+              <SignaturePad
+                onSignatureChange={({ image, name: sigName }) => {
+                  setSignatureImage(image)
+                  setSignatureName(sigName)
+                }}
+              />
+            )}
 
             {/* Submit */}
             <button
@@ -1490,6 +1697,11 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
             {ticket.diagnostic_charge != null && (
               <InfoField label="Diagnostic Charge">
                 ${ticket.diagnostic_charge.toFixed(2)}
+              </InfoField>
+            )}
+            {ticket.diagnostic_invoice_number && (
+              <InfoField label="Diagnostic Invoice #">
+                {ticket.diagnostic_invoice_number}
               </InfoField>
             )}
           </div>

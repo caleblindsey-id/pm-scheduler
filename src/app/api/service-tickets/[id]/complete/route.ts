@@ -10,8 +10,8 @@ interface CompleteServiceTicketBody {
   hours_worked: number
   parts_used: ServicePartUsed[]
   completion_notes: string | null
-  customer_signature: string
-  customer_signature_name: string
+  customer_signature: string | null
+  customer_signature_name: string | null
   photos: TicketPhoto[]
   billing_amount?: number
   warranty_labor_covered?: boolean
@@ -35,13 +35,6 @@ export async function POST(
       )
     }
 
-    if (!customer_signature || !customer_signature_name) {
-      return NextResponse.json(
-        { error: 'Customer signature and printed name are required' },
-        { status: 400 }
-      )
-    }
-
     const user = await getCurrentUser()
     if (!user?.role) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -51,12 +44,20 @@ export async function POST(
     const supabase = await createClient()
     const { data: current, error: fetchError } = await supabase
       .from('service_tickets')
-      .select('status, assigned_technician_id, billing_type')
+      .select('status, assigned_technician_id, billing_type, ticket_type')
       .eq('id', id)
       .single()
 
     if (fetchError || !current) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+    }
+
+    // Signature required only for outside (field) tickets
+    if (current.ticket_type !== 'inside' && (!customer_signature || !customer_signature_name)) {
+      return NextResponse.json(
+        { error: 'Customer signature and printed name are required' },
+        { status: 400 }
+      )
     }
 
     // Techs can only complete their own assigned tickets
@@ -121,8 +122,8 @@ export async function POST(
       parts_used: parts_used ?? [],
       completion_notes: completion_notes ?? null,
       billing_amount: finalBillingAmount,
-      customer_signature,
-      customer_signature_name,
+      customer_signature: customer_signature ?? null,
+      customer_signature_name: customer_signature_name ?? null,
       photos: photos ?? [],
       warranty_labor_covered: body.warranty_labor_covered,
     })

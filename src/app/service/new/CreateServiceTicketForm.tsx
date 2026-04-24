@@ -30,6 +30,10 @@ export function CreateServiceTicketForm() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const comboRef = useRef<HTMLDivElement>(null)
 
+  // --- Ship-to ---
+  const [shipTos, setShipTos] = useState<ShipToLocationRow[]>([])
+  const [shipToId, setShipToId] = useState('')
+
   // --- Equipment ---
   const [equipment, setEquipment] = useState<EquipmentRow[]>([])
   const [equipmentLoaded, setEquipmentLoaded] = useState(false)
@@ -44,6 +48,10 @@ export function CreateServiceTicketForm() {
   const [billingType, setBillingType] = useState<ServiceBillingType>('non_warranty')
   const [priority, setPriority] = useState<ServicePriority>('standard')
   const [problemDescription, setProblemDescription] = useState('')
+
+  // --- Diagnostic fee (optional — captured when already billed in Synergy) ---
+  const [diagnosticInvoiceNumber, setDiagnosticInvoiceNumber] = useState('')
+  const [diagnosticCharge, setDiagnosticCharge] = useState('')
 
   // --- Contact ---
   const [contactName, setContactName] = useState('')
@@ -114,28 +122,51 @@ export function CreateServiceTicketForm() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Load equipment when customer changes
+  // Load ship-to locations when customer changes
   useEffect(() => {
-    setEquipmentId('')
-    setEquipment([])
-    setEquipmentLoaded(false)
-    setUnknownEquipment(false)
-    setEqMake('')
-    setEqModel('')
-    setEqSerial('')
+    setShipTos([])
+    setShipToId('')
     if (!customerId) return
     const supabase = createClient()
     supabase
+      .from('ship_to_locations')
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('name')
+      .then(({ data }) => {
+        setShipTos((data as ShipToLocationRow[]) ?? [])
+      })
+  }, [customerId])
+
+  // Load equipment when customer or ship-to changes (ship-to narrows the list)
+  useEffect(() => {
+    setEquipment([])
+    setEquipmentLoaded(false)
+    if (!customerId) {
+      setEquipmentId('')
+      setUnknownEquipment(false)
+      setEqMake('')
+      setEqModel('')
+      setEqSerial('')
+      return
+    }
+    const supabase = createClient()
+    let query = supabase
       .from('equipment')
       .select('*')
       .eq('customer_id', customerId)
       .eq('active', true)
-      .order('make')
-      .then(({ data }) => {
-        setEquipment(data ?? [])
-        setEquipmentLoaded(true)
-      })
-  }, [customerId])
+    if (shipToId) {
+      query = query.eq('ship_to_location_id', parseInt(shipToId, 10))
+    }
+    query.order('make').then(({ data }) => {
+      const rows = (data ?? []) as EquipmentRow[]
+      setEquipment(rows)
+      setEquipmentLoaded(true)
+      // Keep the current selection if still valid under the new filter; otherwise clear it.
+      setEquipmentId((prev) => (prev && rows.some((e) => e.id === prev) ? prev : ''))
+    })
+  }, [customerId, shipToId])
 
   // Pre-fill contact and address when equipment is selected
   useEffect(() => {
@@ -148,28 +179,28 @@ export function CreateServiceTicketForm() {
     if (eq.contact_email) setContactEmail(eq.contact_email)
     if (eq.contact_phone) setContactPhone(eq.contact_phone)
 
-    // Pre-fill service address from ship-to location
-    if (eq.ship_to_location_id) {
-      const supabase = createClient()
-      supabase
-        .from('ship_to_locations')
-        .select('*')
-        .eq('id', eq.ship_to_location_id)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            const loc = data as ShipToLocationRow
-            if (loc.address) setServiceAddress(loc.address)
-            if (loc.city) setServiceCity(loc.city)
-            if (loc.state) setServiceState(loc.state)
-            if (loc.zip) setServiceZip(loc.zip)
-            // Also fill contact from ship-to if equipment contact is empty
-            if (!eq.contact_name && loc.contact) setContactName(loc.contact)
-            if (!eq.contact_email && loc.email) setContactEmail(loc.email)
-          }
-        })
+    // Pre-fill ship-to + service address from equipment's ship-to (only when ship-to is blank)
+    if (eq.ship_to_location_id && !shipToId) {
+      setShipToId(String(eq.ship_to_location_id))
+      // Address fill happens in the shipToId effect below
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equipmentId, equipment])
+
+  // Pre-fill service address + contact fallbacks when ship-to changes
+  useEffect(() => {
+    if (!shipToId) return
+    const loc = shipTos.find((s) => String(s.id) === shipToId)
+    if (!loc) return
+    if (loc.address) setServiceAddress(loc.address)
+    if (loc.city) setServiceCity(loc.city)
+    if (loc.state) setServiceState(loc.state)
+    if (loc.zip) setServiceZip(loc.zip)
+    // Fill contact from ship-to only if still empty
+    setContactName((prev) => prev || loc.contact || '')
+    setContactEmail((prev) => prev || loc.email || '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipToId, shipTos])
 
   // Pre-fill contact from customer's primary contact when customer selected
   useEffect(() => {
@@ -222,15 +253,19 @@ export function CreateServiceTicketForm() {
       setError('Customer is required.')
       return
     }
-    if (!problemDescription || problemDescription.trim().length < 10) {
-      setError('Problem description must be at least 10 characters.')
+    if (!problemDescription.trim()) {
+      setError('Problem description is required.')
       return
     }
 
     setLoading(true)
 
+    const diagnosticChargeParsed = diagnosticCharge.trim() ? parseFloat(diagnosticCharge) : NaN
+    const diagnosticInvoiceTrimmed = diagnosticInvoiceNumber.trim()
+
     const payload: Record<string, unknown> = {
       customer_id: customerId,
+      ship_to_location_id: shipToId ? parseInt(shipToId, 10) : undefined,
       ticket_type: ticketType,
       billing_type: billingType,
       priority,
@@ -239,6 +274,10 @@ export function CreateServiceTicketForm() {
       contact_email: contactEmail || undefined,
       contact_phone: contactPhone || undefined,
       assigned_technician_id: technicianId || undefined,
+      diagnostic_charge: Number.isFinite(diagnosticChargeParsed) && diagnosticChargeParsed >= 0
+        ? diagnosticChargeParsed
+        : undefined,
+      diagnostic_invoice_number: diagnosticInvoiceTrimmed || undefined,
     }
 
     // Equipment — either existing or unknown inline fields
@@ -378,6 +417,29 @@ export function CreateServiceTicketForm() {
                 </div>
               )}
             </div>
+
+            {/* Ship-to selector — optional */}
+            {customerSelected && shipTos.length > 0 && (
+              <div>
+                <label className={labelClass}>Ship-To Location</label>
+                <select
+                  value={shipToId}
+                  onChange={(e) => setShipToId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">— No ship-to (enter address manually) —</option>
+                  {shipTos.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.name}
+                      {s.city || s.state ? ` — ${[s.city, s.state].filter(Boolean).join(', ')}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Selecting a ship-to filters equipment and pre-fills the service address.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* --- Equipment --- */}
@@ -537,10 +599,44 @@ export function CreateServiceTicketForm() {
               <textarea
                 value={problemDescription}
                 onChange={(e) => setProblemDescription(e.target.value)}
-                placeholder="Describe the problem (at least 10 characters)..."
+                placeholder="Describe the problem..."
                 rows={4}
                 className={inputClass}
               />
+            </div>
+
+            {/* Diagnostic Fee — optional, when a prior diagnostic was already billed in Synergy */}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Diagnostic Fee <span className="normal-case font-normal text-gray-400 dark:text-gray-500">(if already billed in Synergy)</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Synergy Invoice #</label>
+                  <input
+                    type="text"
+                    value={diagnosticInvoiceNumber}
+                    onChange={(e) => setDiagnosticInvoiceNumber(e.target.value)}
+                    placeholder="e.g. 612978"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Amount</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 dark:text-gray-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={diagnosticCharge}
+                      onChange={(e) => setDiagnosticCharge(e.target.value)}
+                      placeholder="0.00"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -46,6 +46,7 @@ export type ServiceTicketRow = {
   contact_name: string | null
   contact_email: string | null
   contact_phone: string | null
+  ship_to_location_id: number | null
   service_address: string | null
   service_city: string | null
   service_state: string | null
@@ -75,6 +76,7 @@ export type ServiceTicketRow = {
   photos: TicketPhoto[]
   billing_amount: number | null
   diagnostic_charge: number | null
+  diagnostic_invoice_number: string | null
   awaiting_pickup: boolean
   picked_up_at: string | null
   work_order_number: number | null

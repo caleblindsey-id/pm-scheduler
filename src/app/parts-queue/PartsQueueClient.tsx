@@ -24,6 +24,7 @@ type SortKey =
   | 'quantity'
   | 'vendor'
   | 'product_number'
+  | 'vendor_item_code'
   | 'po_number'
   | 'assigned_technician_name'
   | 'ordered_at'
@@ -44,6 +45,7 @@ function partToRow(row: PartsQueueRow, part: PartRequest): PartsQueueRow {
     vendor: part.vendor ?? null,
     product_number: part.product_number ?? null,
     synergy_product_id: part.synergy_product_id ?? null,
+    vendor_item_code: part.vendor_item_code ?? null,
     po_number: part.po_number ?? null,
     status: part.status,
     cancelled: part.cancelled ?? false,
@@ -143,6 +145,7 @@ export default function PartsQueueClient({ rows: initialRows }: Props) {
           r.description,
           r.work_order_number?.toString(),
           r.product_number,
+          r.vendor_item_code,
           r.po_number,
           r.vendor,
           r.assigned_technician_name,
@@ -308,6 +311,7 @@ export default function PartsQueueClient({ rows: initialRows }: Props) {
               <SortHeader label="Qty" colKey="quantity" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortHeader label="Vendor" colKey="vendor" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortHeader label="Synergy #" colKey="product_number" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+              <SortHeader label="Vendor #" colKey="vendor_item_code" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortHeader label="PO #" colKey="po_number" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortHeader label="Requested by" colKey="assigned_technician_name" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               {tab === 'ordered' && (
@@ -322,7 +326,7 @@ export default function PartsQueueClient({ rows: initialRows }: Props) {
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   {tab === 'to_order' && "No parts waiting to be ordered — you're caught up."}
                   {tab === 'ordered' && 'Nothing on order right now.'}
                   {tab === 'received' && `No parts received in the last ${RECEIVED_WINDOW_DAYS} days.`}
@@ -373,6 +377,15 @@ export default function PartsQueueClient({ rows: initialRows }: Props) {
                         placeholder="Synergy #"
                         disabled={!canEditFields || isPending}
                         onBlurCommit={v => handleFieldBlur(row, 'product_number', v)}
+                        widthClass="w-28"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <InlineText
+                        value={row.vendor_item_code ?? ''}
+                        placeholder="Vendor #"
+                        disabled={!canEditFields || isPending}
+                        onBlurCommit={v => handleFieldBlur(row, 'vendor_item_code', v)}
                         widthClass="w-28"
                       />
                     </td>

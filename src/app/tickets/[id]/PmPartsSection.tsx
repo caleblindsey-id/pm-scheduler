@@ -35,6 +35,7 @@ export default function PmPartsSection({
   const [newDesc, setNewDesc] = useState('')
   const [newQty, setNewQty] = useState('1')
   const [newProductNumber, setNewProductNumber] = useState('')
+  const [newVendorItemCode, setNewVendorItemCode] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -63,6 +64,7 @@ export default function PmPartsSection({
         description: newDesc.trim(),
         quantity: parseInt(newQty) || 1,
         ...(newProductNumber.trim() ? { product_number: newProductNumber.trim() } : {}),
+        ...(newVendorItemCode.trim() ? { vendor_item_code: newVendorItemCode.trim() } : {}),
         status: 'requested',
         requested_at: new Date().toISOString(),
       }
@@ -72,6 +74,7 @@ export default function PmPartsSection({
       setNewDesc('')
       setNewQty('1')
       setNewProductNumber('')
+      setNewVendorItemCode('')
       setShowAddForm(false)
       router.refresh()
     } catch (err) {
@@ -140,6 +143,23 @@ export default function PmPartsSection({
       setParts(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error saving PO number')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSavePartVendorItemCode(index: number, code: string) {
+    setSaving(true)
+    setError(null)
+    try {
+      const trimmed = code.trim()
+      const updated = parts.map((p, i) =>
+        i === index ? { ...p, vendor_item_code: trimmed || undefined } : p
+      )
+      await patchTicket({ parts_requested: updated })
+      setParts(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error saving vendor item code')
     } finally {
       setSaving(false)
     }
@@ -298,6 +318,20 @@ export default function PmPartsSection({
                   </div>
                 )}
 
+                {/* Vendor item code — office staff only, free text */}
+                {!part.cancelled && !isTech && (
+                  <div className="flex items-center gap-2 ml-0 sm:ml-4">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 shrink-0">Vendor item #:</label>
+                    <input
+                      type="text"
+                      defaultValue={part.vendor_item_code ?? ''}
+                      placeholder="Manufacturer / vendor part #"
+                      onBlur={e => handleSavePartVendorItemCode(i, e.target.value)}
+                      className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-2 py-1 text-xs w-48 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    />
+                  </div>
+                )}
+
                 {/* PO # input — office staff only, after ordered */}
                 {!part.cancelled && !isTech && (part.status === 'ordered' || part.status === 'received') && (
                   <div className="flex items-center gap-2 ml-0 sm:ml-4">
@@ -340,10 +374,17 @@ export default function PmPartsSection({
                 type="text"
                 value={newProductNumber}
                 onChange={e => setNewProductNumber(e.target.value)}
-                placeholder="Product # (optional)"
+                placeholder="Synergy item # (optional)"
                 className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-3 sm:py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-slate-500"
               />
             </div>
+            <input
+              type="text"
+              value={newVendorItemCode}
+              onChange={e => setNewVendorItemCode(e.target.value)}
+              placeholder="Vendor item # (optional)"
+              className="rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-3 sm:py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-slate-500"
+            />
             <div className="flex gap-2">
               <button
                 onClick={handleAddPart}
@@ -353,7 +394,7 @@ export default function PmPartsSection({
                 {saving ? 'Adding…' : 'Add Part'}
               </button>
               <button
-                onClick={() => { setShowAddForm(false); setNewDesc(''); setNewQty('1'); setNewProductNumber('') }}
+                onClick={() => { setShowAddForm(false); setNewDesc(''); setNewQty('1'); setNewProductNumber(''); setNewVendorItemCode('') }}
                 className="px-4 py-3 sm:py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors min-h-[44px]"
               >
                 Cancel

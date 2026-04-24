@@ -70,6 +70,9 @@ export interface PartRequest {
   // Int form of products.synergy_id — set when the office picks a catalog match.
   // Same convention as PartUsed.synergy_product_id (Number(products.synergy_id)).
   synergy_product_id?: number | null
+  // Manufacturer / vendor part number — captured alongside the Synergy item # so
+  // the office can order against the correct SKU with the outside vendor.
+  vendor_item_code?: string
   po_number?: string
   status: 'requested' | 'ordered' | 'received'
   // Vendor the part comes from (free-text, surfaced on the Parts Queue page).
@@ -110,6 +113,7 @@ export type PartsQueueRow = {
   vendor: string | null
   product_number: string | null
   synergy_product_id: number | null
+  vendor_item_code: string | null
   po_number: string | null
   status: 'requested' | 'ordered' | 'received'
   cancelled: boolean

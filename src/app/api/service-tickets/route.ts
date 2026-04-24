@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
 
     const insertData = {
       customer_id: parseInt(customer_id),
+      ship_to_location_id: body.ship_to_location_id ? parseInt(String(body.ship_to_location_id), 10) : null,
       equipment_id: body.equipment_id || null,
       assigned_technician_id: body.assigned_technician_id || null,
       created_by_id: user.id,
@@ -55,6 +56,12 @@ export async function POST(request: NextRequest) {
       equipment_make: body.equipment_make || null,
       equipment_model: body.equipment_model || null,
       equipment_serial_number: body.equipment_serial_number || null,
+      diagnostic_charge: body.diagnostic_charge != null && body.diagnostic_charge !== ''
+        ? parseFloat(String(body.diagnostic_charge))
+        : null,
+      diagnostic_invoice_number: body.diagnostic_invoice_number
+        ? String(body.diagnostic_invoice_number).trim() || null
+        : null,
     }
 
     const { data, error } = await supabase
