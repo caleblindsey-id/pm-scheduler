@@ -58,8 +58,8 @@ export default async function DashboardPage() {
     getSkipRequestedCount(isTech && user ? { technicianId: user.id } : {}),
     getServiceTicketCounts(isTech && user ? user.id : undefined),
     isTech ? Promise.resolve(0) : getPartsToOrderCount(),
-    isTech ? Promise.resolve(0) : getPartsOnOrderCount(),
-    getPartsReadyForPickupCount(),
+    getPartsOnOrderCount(isTech && user ? user.id : undefined),
+    getPartsReadyForPickupCount(isTech && user ? user.id : undefined),
   ])
 
   const statusCards = isTech ? techStatusCards : allStatusCards
@@ -248,25 +248,23 @@ export default async function DashboardPage() {
             </Link>
           )}
 
-          {/* Parts on Order — office staff only */}
-          {!isTech && (
-            <Link
-              href="/service"
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Parts on Order</span>
-                <Truck className="h-5 w-5 text-orange-500" />
-              </div>
-              <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-                {partsOnOrderCount}
-              </p>
-            </Link>
-          )}
-
-          {/* Ready for Pickup — all roles including techs */}
+          {/* Parts on Order — all roles (techs see only their own tickets) */}
           <Link
-            href="/service"
+            href={isTech ? '/tickets' : '/service'}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Parts on Order</span>
+              <Truck className="h-5 w-5 text-orange-500" />
+            </div>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+              {partsOnOrderCount}
+            </p>
+          </Link>
+
+          {/* Ready for Pickup — all roles (techs see only their own tickets) */}
+          <Link
+            href={isTech ? '/tickets' : '/service'}
             className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow transition-all"
           >
             <div className="flex items-center justify-between">

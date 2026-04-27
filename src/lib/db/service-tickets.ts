@@ -175,21 +175,25 @@ export async function getPartsToOrderCount(): Promise<number> {
 
 // --- Parts on Order: tickets (service + PM) with at least one part in 'ordered' status ---
 
-export async function getPartsOnOrderCount(): Promise<number> {
+export async function getPartsOnOrderCount(technicianId?: string): Promise<number> {
   const supabase = await createClient()
 
-  const [serviceResult, pmResult] = await Promise.all([
-    supabase
-      .from('service_tickets')
-      .select('id', { count: 'exact', head: true })
-      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'ordered' }]))
-      .not('status', 'in', '("billed","declined","canceled")'),
-    supabase
-      .from('pm_tickets')
-      .select('id', { count: 'exact', head: true })
-      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'ordered' }]))
-      .not('status', 'in', '("completed","billed","skipped","skip_requested")'),
-  ])
+  const serviceQuery = supabase
+    .from('service_tickets')
+    .select('id', { count: 'exact', head: true })
+    .filter('parts_requested', 'cs', JSON.stringify([{ status: 'ordered' }]))
+    .not('status', 'in', '("billed","declined","canceled")')
+  const pmQuery = supabase
+    .from('pm_tickets')
+    .select('id', { count: 'exact', head: true })
+    .filter('parts_requested', 'cs', JSON.stringify([{ status: 'ordered' }]))
+    .not('status', 'in', '("completed","billed","skipped","skip_requested")')
+  if (technicianId) {
+    serviceQuery.eq('assigned_technician_id', technicianId)
+    pmQuery.eq('assigned_technician_id', technicianId)
+  }
+
+  const [serviceResult, pmResult] = await Promise.all([serviceQuery, pmQuery])
 
   if (serviceResult.error) throw serviceResult.error
   if (pmResult.error) throw pmResult.error
@@ -198,21 +202,25 @@ export async function getPartsOnOrderCount(): Promise<number> {
 
 // --- Parts Ready for Pickup: tickets (service + PM) with at least one part in 'received' status ---
 
-export async function getPartsReadyForPickupCount(): Promise<number> {
+export async function getPartsReadyForPickupCount(technicianId?: string): Promise<number> {
   const supabase = await createClient()
 
-  const [serviceResult, pmResult] = await Promise.all([
-    supabase
-      .from('service_tickets')
-      .select('id', { count: 'exact', head: true })
-      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'received' }]))
-      .not('status', 'in', '("billed","declined","canceled")'),
-    supabase
-      .from('pm_tickets')
-      .select('id', { count: 'exact', head: true })
-      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'received' }]))
-      .not('status', 'in', '("completed","billed","skipped","skip_requested")'),
-  ])
+  const serviceQuery = supabase
+    .from('service_tickets')
+    .select('id', { count: 'exact', head: true })
+    .filter('parts_requested', 'cs', JSON.stringify([{ status: 'received' }]))
+    .not('status', 'in', '("billed","declined","canceled")')
+  const pmQuery = supabase
+    .from('pm_tickets')
+    .select('id', { count: 'exact', head: true })
+    .filter('parts_requested', 'cs', JSON.stringify([{ status: 'received' }]))
+    .not('status', 'in', '("completed","billed","skipped","skip_requested")')
+  if (technicianId) {
+    serviceQuery.eq('assigned_technician_id', technicianId)
+    pmQuery.eq('assigned_technician_id', technicianId)
+  }
+
+  const [serviceResult, pmResult] = await Promise.all([serviceQuery, pmQuery])
 
   if (serviceResult.error) throw serviceResult.error
   if (pmResult.error) throw pmResult.error
