@@ -48,7 +48,19 @@ export default async function DashboardPage() {
   const user = await getCurrentUser()
   const isTech = isTechnician(user?.role ?? null)
 
-  const [tickets, overdueCount, skipRequestedCount, serviceCounts, partsToOrderCount, partsOnOrderCount, partsReadyForPickupCount] = await Promise.all([
+  const techScope = isTech && user ? user.id : undefined
+  const [
+    tickets,
+    overdueCount,
+    skipRequestedCount,
+    serviceCounts,
+    pmPartsToOrder,
+    pmPartsOnOrder,
+    pmPartsReadyForPickup,
+    svcPartsToOrder,
+    svcPartsOnOrder,
+    svcPartsReadyForPickup,
+  ] = await Promise.all([
     getTickets({
       month,
       year,
@@ -56,10 +68,13 @@ export default async function DashboardPage() {
     }),
     getOverdueTicketCount(isTech && user ? { technicianId: user.id } : {}),
     getSkipRequestedCount(isTech && user ? { technicianId: user.id } : {}),
-    getServiceTicketCounts(isTech && user ? user.id : undefined),
-    isTech ? Promise.resolve(0) : getPartsToOrderCount(),
-    getPartsOnOrderCount(isTech && user ? user.id : undefined),
-    getPartsReadyForPickupCount(isTech && user ? user.id : undefined),
+    getServiceTicketCounts(techScope),
+    isTech ? Promise.resolve(0) : getPartsToOrderCount('pm'),
+    getPartsOnOrderCount(techScope, 'pm'),
+    getPartsReadyForPickupCount(techScope, 'pm'),
+    isTech ? Promise.resolve(0) : getPartsToOrderCount('service'),
+    getPartsOnOrderCount(techScope, 'service'),
+    getPartsReadyForPickupCount(techScope, 'service'),
   ])
 
   const statusCards = isTech ? techStatusCards : allStatusCards
@@ -202,6 +217,50 @@ export default async function DashboardPage() {
             </p>
           </div>
         )}
+
+        {/* PM Parts to Order — office staff only */}
+        {!isTech && (
+          <Link
+            href="/tickets"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Parts to Order</span>
+              <PackageSearch className="h-5 w-5 text-amber-500" />
+            </div>
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+              {pmPartsToOrder}
+            </p>
+          </Link>
+        )}
+
+        {/* PM Parts on Order — all roles (techs see only their own tickets) */}
+        <Link
+          href="/tickets"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Parts on Order</span>
+            <Truck className="h-5 w-5 text-orange-500" />
+          </div>
+          <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+            {pmPartsOnOrder}
+          </p>
+        </Link>
+
+        {/* PM Ready for Pickup — all roles (techs see only their own tickets) */}
+        <Link
+          href="/tickets"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Ready for Pickup</span>
+            <PackageCheck className="h-5 w-5 text-green-500" />
+          </div>
+          <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+            {pmPartsReadyForPickup}
+          </p>
+        </Link>
       </div>
 
       {/* Service Ticket Cards */}
@@ -243,7 +302,7 @@ export default async function DashboardPage() {
                 <PackageSearch className="h-5 w-5 text-amber-500" />
               </div>
               <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-                {partsToOrderCount}
+                {svcPartsToOrder}
               </p>
             </Link>
           )}
@@ -258,7 +317,7 @@ export default async function DashboardPage() {
               <Truck className="h-5 w-5 text-orange-500" />
             </div>
             <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-              {partsOnOrderCount}
+              {svcPartsOnOrder}
             </p>
           </Link>
 
@@ -272,7 +331,7 @@ export default async function DashboardPage() {
               <PackageCheck className="h-5 w-5 text-green-500" />
             </div>
             <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-              {partsReadyForPickupCount}
+              {svcPartsReadyForPickup}
             </p>
           </Link>
         </div>

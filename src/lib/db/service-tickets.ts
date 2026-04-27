@@ -159,9 +159,21 @@ export async function getServiceTicketsForEquipment(equipmentId: string) {
 }
 
 // --- Get count of tickets needing parts ordered (dashboard) ---
+// ticketType: undefined → service-only (legacy); 'service' → service-only; 'pm' → pm-only
 
-export async function getPartsToOrderCount(): Promise<number> {
+export async function getPartsToOrderCount(ticketType?: 'pm' | 'service'): Promise<number> {
   const supabase = await createClient()
+
+  if (ticketType === 'pm') {
+    const { count, error } = await supabase
+      .from('pm_tickets')
+      .select('id', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'requested' }]))
+      .not('status', 'in', '("completed","billed","skipped","skip_requested")')
+    if (error) throw error
+    return count ?? 0
+  }
 
   const { count, error } = await supabase
     .from('service_tickets')
@@ -173,9 +185,13 @@ export async function getPartsToOrderCount(): Promise<number> {
   return count ?? 0
 }
 
-// --- Parts on Order: tickets (service + PM) with at least one part in 'ordered' status ---
+// --- Parts on Order: tickets with at least one part in 'ordered' status ---
+// ticketType: undefined → service + PM combined; 'service' or 'pm' → that table only
 
-export async function getPartsOnOrderCount(technicianId?: string): Promise<number> {
+export async function getPartsOnOrderCount(
+  technicianId?: string,
+  ticketType?: 'pm' | 'service'
+): Promise<number> {
   const supabase = await createClient()
 
   const serviceQuery = supabase
@@ -194,6 +210,17 @@ export async function getPartsOnOrderCount(technicianId?: string): Promise<numbe
     pmQuery.eq('assigned_technician_id', technicianId)
   }
 
+  if (ticketType === 'service') {
+    const { count, error } = await serviceQuery
+    if (error) throw error
+    return count ?? 0
+  }
+  if (ticketType === 'pm') {
+    const { count, error } = await pmQuery
+    if (error) throw error
+    return count ?? 0
+  }
+
   const [serviceResult, pmResult] = await Promise.all([serviceQuery, pmQuery])
 
   if (serviceResult.error) throw serviceResult.error
@@ -201,9 +228,13 @@ export async function getPartsOnOrderCount(technicianId?: string): Promise<numbe
   return (serviceResult.count ?? 0) + (pmResult.count ?? 0)
 }
 
-// --- Parts Ready for Pickup: tickets (service + PM) with at least one part in 'received' status ---
+// --- Parts Ready for Pickup: tickets with at least one part in 'received' status ---
+// ticketType: undefined → service + PM combined; 'service' or 'pm' → that table only
 
-export async function getPartsReadyForPickupCount(technicianId?: string): Promise<number> {
+export async function getPartsReadyForPickupCount(
+  technicianId?: string,
+  ticketType?: 'pm' | 'service'
+): Promise<number> {
   const supabase = await createClient()
 
   const serviceQuery = supabase
@@ -220,6 +251,17 @@ export async function getPartsReadyForPickupCount(technicianId?: string): Promis
   if (technicianId) {
     serviceQuery.eq('assigned_technician_id', technicianId)
     pmQuery.eq('assigned_technician_id', technicianId)
+  }
+
+  if (ticketType === 'service') {
+    const { count, error } = await serviceQuery
+    if (error) throw error
+    return count ?? 0
+  }
+  if (ticketType === 'pm') {
+    const { count, error } = await pmQuery
+    if (error) throw error
+    return count ?? 0
   }
 
   const [serviceResult, pmResult] = await Promise.all([serviceQuery, pmQuery])
