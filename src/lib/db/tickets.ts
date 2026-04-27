@@ -10,8 +10,8 @@ export type TicketWithJoins = PmTicketRow & {
 }
 
 export type TicketDetail = PmTicketRow & {
-  customers: { name: string; account_number: string | null; billing_city: string | null; po_required: boolean; ar_terms: string | null; credit_hold: boolean } | null
-  equipment: { make: string | null; model: string | null; serial_number: string | null; default_products: { synergy_product_id: number; quantity: number; description: string }[]; ship_to_locations: { city: string | null } | null } | null
+  customers: { name: string; account_number: string | null; billing_address: string | null; billing_city: string | null; billing_state: string | null; billing_zip: string | null; po_required: boolean; ar_terms: string | null; credit_hold: boolean } | null
+  equipment: { make: string | null; model: string | null; serial_number: string | null; default_products: { synergy_product_id: number; quantity: number; description: string }[]; ship_to_locations: { name: string | null; address: string | null; city: string | null; state: string | null; zip: string | null } | null } | null
   assigned_technician: { name: string } | null
   created_by: { name: string } | null
   schedule: { billing_type: BillingType | null; flat_rate: number | null } | null
@@ -151,8 +151,8 @@ export async function getTicket(id: string): Promise<TicketDetail | null> {
     .from('pm_tickets')
     .select(`
       *,
-      customers(name, account_number, billing_city, po_required, ar_terms, credit_hold),
-      equipment(make, model, serial_number, default_products, ship_to_locations(city)),
+      customers(name, account_number, billing_address, billing_city, billing_state, billing_zip, po_required, ar_terms, credit_hold),
+      equipment(make, model, serial_number, default_products, ship_to_locations(name, address, city, state, zip)),
       assigned_technician:users!assigned_technician_id(name),
       created_by:users!created_by_id(name),
       schedule:pm_schedules(billing_type, flat_rate)

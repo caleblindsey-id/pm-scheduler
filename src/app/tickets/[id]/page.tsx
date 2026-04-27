@@ -126,11 +126,35 @@ export default async function TicketDetailPage({
               {ticket.equipment?.serial_number ?? '—'}
             </p>
           </div>
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">City</span>
-            <p className="text-gray-900 dark:text-white font-medium">
-              {ticket.equipment?.ship_to_locations?.city ?? ticket.customers?.billing_city ?? '—'}
-            </p>
+          <div className="md:col-span-2">
+            <span className="text-gray-500 dark:text-gray-400">Ship-To</span>
+            {(() => {
+              const shipTo = ticket.equipment?.ship_to_locations
+              const shipToAddress = shipTo
+                ? [shipTo.address, shipTo.city, shipTo.state, shipTo.zip].filter(Boolean).join(', ')
+                : ''
+              if (shipTo && shipToAddress) {
+                return (
+                  <p className="text-gray-900 dark:text-white font-medium">
+                    {shipTo.name && <span className="block">{shipTo.name}</span>}
+                    <span className="block">{shipToAddress}</span>
+                  </p>
+                )
+              }
+              const cust = ticket.customers
+              const billingAddress = cust
+                ? [cust.billing_address, cust.billing_city, cust.billing_state, cust.billing_zip].filter(Boolean).join(', ')
+                : ''
+              if (billingAddress) {
+                return (
+                  <p className="text-gray-900 dark:text-white font-medium">
+                    <span className="block">{billingAddress}</span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">(billing address)</span>
+                  </p>
+                )
+              }
+              return <p className="text-gray-900 dark:text-white font-medium">—</p>
+            })()}
           </div>
           <div>
             <span className="text-gray-500 dark:text-gray-400">Scheduled Date</span>
