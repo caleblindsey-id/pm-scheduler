@@ -13,6 +13,7 @@ import EquipmentNotes from '@/components/EquipmentNotes'
 import { getCurrentUser, isTechnician, RESET_ROLES } from '@/lib/auth'
 import { pmTicketToHistoryItem } from '@/types/service-tickets'
 import { getSetting } from '@/lib/db/settings'
+import { describeSchedule, formatMonthYear } from '@/lib/utils/schedule'
 
 export default async function TicketDetailPage({
   params,
@@ -195,6 +196,28 @@ export default async function TicketDetailPage({
               {ticket.month}/{ticket.year}
             </p>
           </div>
+          {ticket.pm_schedule_id && ticket.schedule && (
+            <>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">PM Schedule</span>
+                <p className="text-gray-900 dark:text-white font-medium">
+                  {describeSchedule(ticket.schedule.interval_months, ticket.schedule.anchor_month)}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Last Service</span>
+                <p className="text-gray-900 dark:text-white font-medium">
+                  {formatMonthYear(ticket.lastServiceMonth, ticket.lastServiceYear)}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Next Service</span>
+                <p className="text-gray-900 dark:text-white font-medium">
+                  {formatMonthYear(ticket.nextServiceMonth, ticket.nextServiceYear)}
+                </p>
+              </div>
+            </>
+          )}
           <div>
             <span className="text-gray-500 dark:text-gray-400">Assigned Technician</span>
             <p className="text-gray-900 dark:text-white font-medium">

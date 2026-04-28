@@ -1,43 +1,12 @@
 import { getEquipment } from '@/lib/db/equipment'
 import { requireRole, MANAGER_ROLES } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { calcNextServiceMonth } from '@/lib/utils/schedule'
 import EquipmentList from './EquipmentList'
 
 export type EquipmentListItem = Awaited<ReturnType<typeof getEquipment>>[number] & {
   lastServiceDate: string | null
   nextServiceDate: string | null
-}
-
-function calcNextServiceDate(
-  intervalMonths: number,
-  anchorMonth: number,
-  now: Date,
-  existingTicketKeys: Set<string>
-): string | null {
-  // Sanity guards — corrupted schedule data could otherwise produce NaN dates
-  // or wrong cadences. Migration 048 also adds CHECK constraints so this is
-  // belt-and-suspenders going forward.
-  if (!Number.isFinite(intervalMonths) || intervalMonths <= 0) return null
-  if (!Number.isFinite(anchorMonth) || anchorMonth < 1 || anchorMonth > 12) return null
-
-  const currentMonth = now.getMonth() + 1 // 1-12
-  const currentYear = now.getFullYear()
-
-  // Check up to 24 months out to find the next service month without an existing ticket
-  for (let offset = 0; offset < 24; offset++) {
-    const candidateMonth = ((currentMonth - 1 + offset) % 12) + 1
-    const candidateYear = currentYear + Math.floor((currentMonth - 1 + offset) / 12)
-
-    const diff = ((candidateMonth - anchorMonth) % intervalMonths + intervalMonths) % intervalMonths
-    if (diff === 0) {
-      const key = `${candidateYear}-${candidateMonth}`
-      if (!existingTicketKeys.has(key)) {
-        return `${candidateYear}-${String(candidateMonth).padStart(2, '0')}`
-      }
-    }
-  }
-
-  return null
 }
 
 export default async function EquipmentPage() {
@@ -80,17 +49,23 @@ export default async function EquipmentPage() {
 
   // Calculate next service dates from schedules
   const now = new Date()
+  const currentMonth = now.getMonth() + 1
+  const currentYear = now.getFullYear()
   const enriched: EquipmentListItem[] = equipment.map((e) => {
     const activeSchedule = e.pm_schedules?.find((s) => s.active)
     let nextServiceDate: string | null = null
     if (activeSchedule) {
       const existingKeys = ticketsByEquipment.get(e.id) ?? new Set()
-      nextServiceDate = calcNextServiceDate(
+      const next = calcNextServiceMonth(
         activeSchedule.interval_months,
         activeSchedule.anchor_month,
-        now,
+        currentMonth,
+        currentYear,
         existingKeys
       )
+      if (next) {
+        nextServiceDate = `${next.year}-${String(next.month).padStart(2, '0')}`
+      }
     }
 
     return {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { PmTicketRow, PmTicketUpdate, TicketStatus, PartUsed, TicketPhoto, BillingType } from '@/types/database'
 import { OVERDUE_ELIGIBLE_STATUSES } from '@/lib/overdue'
+import { calcNextServiceMonth } from '@/lib/utils/schedule'
 
 export type TicketWithJoins = PmTicketRow & {
   customers: { name: string; billing_city: string | null; po_required: boolean; ar_terms: string | null; credit_hold: boolean } | null
@@ -15,7 +16,11 @@ export type TicketDetail = PmTicketRow & {
   assigned_technician: { name: string } | null
   created_by: { name: string } | null
   deleted_by: { name: string } | null
-  schedule: { billing_type: BillingType | null; flat_rate: number | null } | null
+  schedule: { billing_type: BillingType | null; flat_rate: number | null; interval_months: number; anchor_month: number } | null
+  lastServiceMonth: number | null
+  lastServiceYear: number | null
+  nextServiceMonth: number | null
+  nextServiceYear: number | null
 }
 
 export async function getTickets(filters?: {
@@ -168,7 +173,7 @@ export async function getTicket(id: string, options?: { includeDeleted?: boolean
       assigned_technician:users!assigned_technician_id(name),
       created_by:users!created_by_id(name),
       deleted_by:users!deleted_by_id(name),
-      schedule:pm_schedules(billing_type, flat_rate)
+      schedule:pm_schedules(billing_type, flat_rate, interval_months, anchor_month)
     `)
     .eq('id', id)
 
@@ -185,7 +190,66 @@ export async function getTicket(id: string, options?: { includeDeleted?: boolean
     throw error
   }
 
-  return data as TicketDetail
+  const ticket = data as TicketDetail
+  ticket.lastServiceMonth = null
+  ticket.lastServiceYear = null
+  ticket.nextServiceMonth = null
+  ticket.nextServiceYear = null
+
+  // For PM tickets with a schedule + equipment, derive Last/Next service from
+  // sibling pm_tickets. Both exclude the current ticket so they always describe
+  // service relative to the one being viewed.
+  if (ticket.pm_schedule_id && ticket.equipment_id && ticket.schedule) {
+    const [{ data: lastRows }, { data: siblingRows }] = await Promise.all([
+      supabase
+        .from('pm_tickets')
+        .select('month, year')
+        .eq('equipment_id', ticket.equipment_id)
+        .neq('id', ticket.id)
+        .in('status', ['completed', 'billed'])
+        .is('deleted_at', null)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false })
+        .limit(1),
+      supabase
+        .from('pm_tickets')
+        .select('month, year, status')
+        .eq('equipment_id', ticket.equipment_id)
+        .neq('id', ticket.id)
+        .is('deleted_at', null),
+    ])
+
+    const last = lastRows?.[0]
+    if (last?.month && last?.year) {
+      ticket.lastServiceMonth = last.month
+      ticket.lastServiceYear = last.year
+    }
+
+    const existingKeys = new Set<string>()
+    for (const s of siblingRows ?? []) {
+      if (s.status !== 'skipped' && s.month && s.year) {
+        existingKeys.add(`${s.year}-${s.month}`)
+      }
+    }
+
+    // Advance one month past the current ticket so we project the *next* service.
+    const fromMonth = ticket.month === 12 ? 1 : ticket.month + 1
+    const fromYear = ticket.month === 12 ? ticket.year + 1 : ticket.year
+
+    const next = calcNextServiceMonth(
+      ticket.schedule.interval_months,
+      ticket.schedule.anchor_month,
+      fromMonth,
+      fromYear,
+      existingKeys
+    )
+    if (next) {
+      ticket.nextServiceMonth = next.month
+      ticket.nextServiceYear = next.year
+    }
+  }
+
+  return ticket
 }
 
 export async function updateTicket(

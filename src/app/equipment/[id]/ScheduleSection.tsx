@@ -4,32 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PmScheduleRow, BillingType } from '@/types/database'
-
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
-
-const INTERVAL_OPTIONS = [
-  { value: 1,  label: 'Every month' },
-  { value: 2,  label: 'Every 2 months' },
-  { value: 3,  label: 'Every 3 months' },
-  { value: 4,  label: 'Every 4 months' },
-  { value: 6,  label: 'Every 6 months' },
-  { value: 12, label: 'Once a year' },
-]
+import { MONTHS, INTERVAL_OPTIONS, describeSchedule } from '@/lib/utils/schedule'
 
 const BILLING_TYPES: { value: BillingType; label: string }[] = [
   { value: 'flat_rate', label: 'Flat Rate' },
   { value: 'time_and_materials', label: 'Time & Materials' },
   { value: 'contract', label: 'Contract' },
 ]
-
-function describeSchedule(schedule: PmScheduleRow): string {
-  const intervalLabel = INTERVAL_OPTIONS.find((o) => o.value === schedule.interval_months)?.label
-    ?? `Every ${schedule.interval_months} months`
-  return `${intervalLabel}, starting ${MONTHS[schedule.anchor_month - 1]}`
-}
 
 interface ScheduleSectionProps {
   equipmentId: string
@@ -112,7 +93,7 @@ export default function ScheduleSection({ equipmentId, schedule }: ScheduleSecti
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
             <span className="text-gray-500 dark:text-gray-400">Frequency</span>
-            <p className="text-gray-900 dark:text-white font-medium">{describeSchedule(schedule)}</p>
+            <p className="text-gray-900 dark:text-white font-medium">{describeSchedule(schedule.interval_months, schedule.anchor_month)}</p>
           </div>
           <div>
             <span className="text-gray-500 dark:text-gray-400">Billing Type</span>
