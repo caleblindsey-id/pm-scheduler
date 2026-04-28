@@ -283,25 +283,33 @@ export async function getPartsReadyForPickupCount(
 }
 
 // --- Get service ticket counts by status (dashboard) ---
+// Uses one count:'exact', head:true query per active status, parallelized.
+// Replaces the previous .select('status') + JS aggregation antipattern that
+// fetched every active service_tickets row to count them.
 
-export async function getServiceTicketCounts(technicianId?: string) {
+const ACTIVE_SERVICE_STATUSES = ['open', 'estimated', 'approved', 'in_progress', 'completed'] as const
+
+export async function getServiceTicketCounts(technicianId?: string): Promise<Record<string, number>> {
   const supabase = await createClient()
 
-  let query = supabase.from('service_tickets').select('status')
-
-  if (technicianId) {
-    query = query.eq('assigned_technician_id', technicianId)
-  }
-
-  // Exclude terminal statuses from active counts
-  query = query.not('status', 'in', '("billed","declined","canceled")')
-
-  const { data, error } = await query
-  if (error) throw error
+  const results = await Promise.all(
+    ACTIVE_SERVICE_STATUSES.map((status) => {
+      let q = supabase
+        .from('service_tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', status)
+      if (technicianId) {
+        q = q.eq('assigned_technician_id', technicianId)
+      }
+      return q
+    })
+  )
 
   const counts: Record<string, number> = {}
-  for (const row of data ?? []) {
-    counts[row.status] = (counts[row.status] ?? 0) + 1
+  for (let i = 0; i < ACTIVE_SERVICE_STATUSES.length; i++) {
+    const r = results[i]
+    if (r.error) throw r.error
+    counts[ACTIVE_SERVICE_STATUSES[i]] = r.count ?? 0
   }
   return counts
 }

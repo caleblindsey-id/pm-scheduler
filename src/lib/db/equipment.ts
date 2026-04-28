@@ -252,25 +252,28 @@ export async function getInactiveEquipmentProspects(): Promise<InactiveEquipment
 
   const equipmentIds = equipment.map((e) => e.id)
 
-  // 2. Fetch prospect records for these equipment IDs
-  const { data: prospectData } = await supabase
-    .from('equipment_prospects')
-    .select('*')
-    .in('equipment_id', equipmentIds)
+  // 2 + 3. Prospects and ticket aggregates are independent — run in parallel.
+  const [prospectRes, ticketRes] = await Promise.all([
+    supabase
+      .from('equipment_prospects')
+      .select('*')
+      .in('equipment_id', equipmentIds),
+    supabase
+      .from('pm_tickets')
+      .select('equipment_id, completed_date, billing_amount, assigned_technician_id')
+      .in('equipment_id', equipmentIds)
+      .is('deleted_at', null)
+      .in('status', ['completed', 'billed'])
+      .order('completed_date', { ascending: false }),
+  ])
+
+  const prospectData = prospectRes.data
+  const ticketData = ticketRes.data
 
   const prospectMap = new Map<string, EquipmentProspectRow>()
   for (const p of prospectData ?? []) {
     prospectMap.set(p.equipment_id, p as EquipmentProspectRow)
   }
-
-  // 3. Fetch ticket aggregates (last service, revenue) from completed/billed tickets
-  const { data: ticketData } = await supabase
-    .from('pm_tickets')
-    .select('equipment_id, completed_date, billing_amount, assigned_technician_id')
-    .in('equipment_id', equipmentIds)
-    .is('deleted_at', null)
-    .in('status', ['completed', 'billed'])
-    .order('completed_date', { ascending: false })
 
   const lastService = new Map<string, string>()
   const totalRevenue = new Map<string, number>()

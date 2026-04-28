@@ -285,7 +285,7 @@ export async function getTeamAnalytics(
   const range = periodType === 'monthly' ? getMonthRange(date) : getWeekRange(date)
   const priorRange = getPriorRange(periodType, range.start)
 
-  // Fetch technicians
+  // Fetch technicians first — downstream resolveTargets and tech-row build depend on this list.
   const { data: techs, error: techErr } = await supabase
     .from('users')
     .select('id, name, hourly_cost')
@@ -295,33 +295,64 @@ export async function getTeamAnalytics(
 
   if (techErr) throw techErr
 
-  // Fetch tickets for current + prior period
-  const { data: currentTickets, error: curErr } = await supabase
-    .from('pm_tickets')
-    .select('assigned_technician_id, status, billing_amount, hours_worked, additional_hours_worked, additional_parts_used, completed_date, scheduled_date')
-    .is('deleted_at', null)
-    .gte('completed_date', range.start)
-    .lte('completed_date', range.end + 'T23:59:59Z')
-
-  if (curErr) throw curErr
-
-  const { data: priorTickets, error: priorErr } = await supabase
-    .from('pm_tickets')
-    .select('assigned_technician_id, status, billing_amount, hours_worked, additional_hours_worked, additional_parts_used, completed_date, scheduled_date')
-    .is('deleted_at', null)
-    .gte('completed_date', priorRange.start)
-    .lte('completed_date', priorRange.end + 'T23:59:59Z')
-
-  if (priorErr) throw priorErr
-
-  // Also fetch assigned/in_progress/skipped tickets for completion rate (current period uses month/year)
+  // Trend window (last 12 months) — computed up here so the trend query can run
+  // in the same parallel batch as current/prior/allStatus/targets below.
+  const trendStart = new Date(range.start + 'T12:00:00Z')
+  trendStart.setUTCMonth(trendStart.getUTCMonth() - 11)
+  const trendStartStr = trendStart.toISOString().split('T')[0]
   const curDate = new Date(range.start + 'T12:00:00Z')
-  const { data: allStatusTickets } = await supabase
-    .from('pm_tickets')
-    .select('assigned_technician_id, status')
-    .is('deleted_at', null)
-    .eq('month', curDate.getUTCMonth() + 1)
-    .eq('year', curDate.getUTCFullYear())
+
+  // All five remaining fetches are independent of each other — run in parallel.
+  const [
+    currentRes,
+    priorRes,
+    allStatusRes,
+    targetsRes,
+    trendRes,
+  ] = await Promise.all([
+    supabase
+      .from('pm_tickets')
+      .select('assigned_technician_id, status, billing_amount, hours_worked, additional_hours_worked, additional_parts_used, completed_date, scheduled_date')
+      .is('deleted_at', null)
+      .gte('completed_date', range.start)
+      .lte('completed_date', range.end + 'T23:59:59Z'),
+    supabase
+      .from('pm_tickets')
+      .select('assigned_technician_id, status, billing_amount, hours_worked, additional_hours_worked, additional_parts_used, completed_date, scheduled_date')
+      .is('deleted_at', null)
+      .gte('completed_date', priorRange.start)
+      .lte('completed_date', priorRange.end + 'T23:59:59Z'),
+    supabase
+      .from('pm_tickets')
+      .select('assigned_technician_id, status')
+      .is('deleted_at', null)
+      .eq('month', curDate.getUTCMonth() + 1)
+      .eq('year', curDate.getUTCFullYear()),
+    supabase
+      .from('technician_targets')
+      .select('*')
+      .eq('active', true)
+      .eq('period_type', periodType)
+      .lte('effective_from', date)
+      .order('effective_from', { ascending: false }),
+    supabase
+      .from('pm_tickets')
+      .select('assigned_technician_id, status, billing_amount, hours_worked, additional_hours_worked, completed_date')
+      .is('deleted_at', null)
+      .in('status', ['completed', 'billed'])
+      .gte('completed_date', trendStartStr)
+      .order('completed_date', { ascending: false }),
+  ])
+
+  if (currentRes.error) throw currentRes.error
+  if (priorRes.error) throw priorRes.error
+  // allStatusRes / targetsRes / trendRes preserve the original behavior of swallowing errors silently.
+
+  const currentTickets = currentRes.data
+  const priorTickets = priorRes.data
+  const allStatusTickets = allStatusRes.data
+  const targets = targetsRes.data
+  const trendTickets = trendRes.data
 
   // Merge completed tickets with all-status tickets for completion rate calculation
   const mergedCurrent = [
@@ -330,15 +361,6 @@ export async function getTeamAnalytics(
       (t) => !['completed', 'billed'].includes(t.status)
     ).map((t) => ({ ...t, billing_amount: null, hours_worked: null, additional_hours_worked: null, additional_parts_used: null, completed_date: null, scheduled_date: null })),
   ] as RawTicket[]
-
-  // Fetch targets
-  const { data: targets } = await supabase
-    .from('technician_targets')
-    .select('*')
-    .eq('active', true)
-    .eq('period_type', periodType)
-    .lte('effective_from', date)
-    .order('effective_from', { ascending: false })
 
   const targetMap = new Map<string, Map<string, TechnicianTargetRow>>()
   const teamDefaults = new Map<string, TechnicianTargetRow>()
@@ -419,19 +441,7 @@ export async function getTeamAnalytics(
   }
   if (priorDayCount > 0) priorCompDays = priorDaySum / priorDayCount
 
-  // Team trend: last 12 months of aggregated data
-  const trendStart = new Date(range.start + 'T12:00:00Z')
-  trendStart.setUTCMonth(trendStart.getUTCMonth() - 11)
-  const trendStartStr = trendStart.toISOString().split('T')[0]
-
-  const { data: trendTickets } = await supabase
-    .from('pm_tickets')
-    .select('assigned_technician_id, status, billing_amount, hours_worked, additional_hours_worked, completed_date')
-    .is('deleted_at', null)
-    .in('status', ['completed', 'billed'])
-    .gte('completed_date', trendStartStr)
-    .order('completed_date', { ascending: false })
-
+  // Team trend: last 12 months of aggregated data — trendTickets fetched in parallel above.
   const teamTrend: TrendPoint[] = []
   for (let i = 11; i >= 0; i--) {
     const d = new Date(range.start + 'T12:00:00Z')
