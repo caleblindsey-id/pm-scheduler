@@ -149,6 +149,11 @@ export async function POST(request: NextRequest) {
         month,
         year,
         status,
+        // Explicit default so supabase-js batch upsert doesn't inject NULL on
+        // unflagged rows — flag-detection below upgrades flagged rows to true.
+        // Migration 050 declared this NOT NULL DEFAULT FALSE; uniform key set
+        // across the batch keeps Postgres happy.
+        requires_review: false,
         parts_used: (equipment.default_products ?? []).map((p) => ({
           synergy_product_id: p.synergy_product_id,
           quantity: p.quantity,
