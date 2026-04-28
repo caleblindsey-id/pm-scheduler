@@ -1,14 +1,21 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { ArrowLeft, Target } from 'lucide-react'
 import type { TechnicianAnalytics } from '@/lib/db/analytics'
 import KpiCard from '@/components/analytics/KpiCard'
-import TrendChart from '@/components/analytics/TrendChart'
 import RevenueBreakdown from '@/components/analytics/RevenueBreakdown'
 import PeriodComparison from '@/components/analytics/PeriodComparison'
 import TargetsForm from '@/components/analytics/TargetsForm'
+
+const TrendChart = dynamic(() => import('@/components/analytics/TrendChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 bg-gray-50 dark:bg-gray-800/50 rounded-lg animate-pulse" />
+  ),
+})
 
 interface TechnicianProfileProps {
   initialData: TechnicianAnalytics

@@ -151,7 +151,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
         .select('id, synergy_id, number, description, unit_price')
         .or(`number.ilike.%${q}%,description.ilike.%${q}%`)
         .order('number')
-        .limit(25)
+        .limit(10)
 
       setParts((prev) => {
         const u = [...prev]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useDeferredValue, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import type { EquipmentListItem } from './page'
@@ -50,17 +50,23 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
   const [showActive, setShowActive] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
 
-  const filtered = equipment.filter((e) => {
-    if (showActive && !e.active) return false
-    if (!showActive && e.active) return false
-    if (search) {
-      const q = search.toLowerCase()
-      const name = e.customers?.name?.toLowerCase() ?? ''
-      const serial = e.serial_number?.toLowerCase() ?? ''
-      return name.includes(q) || serial.includes(q)
-    }
-    return true
-  })
+  // useDeferredValue lets React keep the input snappy on every keystroke and
+  // recompute the filtered list at lower priority — input stays responsive
+  // even when the equipment array is large.
+  const deferredSearch = useDeferredValue(search)
+  const filtered = useMemo(() => {
+    return equipment.filter((e) => {
+      if (showActive && !e.active) return false
+      if (!showActive && e.active) return false
+      if (deferredSearch) {
+        const q = deferredSearch.toLowerCase()
+        const name = e.customers?.name?.toLowerCase() ?? ''
+        const serial = e.serial_number?.toLowerCase() ?? ''
+        return name.includes(q) || serial.includes(q)
+      }
+      return true
+    })
+  }, [equipment, showActive, deferredSearch])
 
   return (
     <>

@@ -1,12 +1,20 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import type { TeamAnalytics } from '@/lib/db/analytics'
 import KpiCard from '@/components/analytics/KpiCard'
 import Leaderboard from '@/components/analytics/Leaderboard'
-import TrendChart from '@/components/analytics/TrendChart'
 import TargetsForm from '@/components/analytics/TargetsForm'
 import { Target } from 'lucide-react'
+
+// Recharts is ~200KB; defer the chart so the page shell + KPIs render first.
+const TrendChart = dynamic(() => import('@/components/analytics/TrendChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 bg-gray-50 dark:bg-gray-800/50 rounded-lg animate-pulse" />
+  ),
+})
 
 interface AnalyticsOverviewProps {
   initialData: TeamAnalytics

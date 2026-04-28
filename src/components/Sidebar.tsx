@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { APP_NAME } from '@/lib/branding'
@@ -56,11 +57,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const user = useUser()
-  const navItems = user?.role === 'technician'
-    ? techNavItems
-    : user?.role === 'super_admin'
-      ? [...allNavItems, ...adminNavItems]
-      : allNavItems
+  // Memoize so the nav array (and the super_admin spread) doesn't get rebuilt
+  // on every UserProvider re-render. usePathname / useRouter still trigger
+  // re-render on navigation; navItems alone shouldn't.
+  const navItems = useMemo(() => {
+    if (user?.role === 'technician') return techNavItems
+    if (user?.role === 'super_admin') return [...allNavItems, ...adminNavItems]
+    return allNavItems
+  }, [user?.role])
 
   async function handleLogout() {
     const supabase = createClient()
