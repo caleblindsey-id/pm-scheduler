@@ -26,6 +26,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'Valid removal reason is required' }, { status: 400 })
   }
 
+  const trimmedNote = typeof note === 'string' ? note.trim() : null
+  if (trimmedNote && trimmedNote.length > 1000) {
+    return NextResponse.json({ error: 'Removal note is too long (max 1000 chars).' }, { status: 400 })
+  }
+
   const supabase = await createClient()
 
   const { error } = await supabase
@@ -36,7 +41,7 @@ export async function PATCH(
         is_prospect: false,
         removed: true,
         removal_reason: reason,
-        removal_note: note?.trim() || null,
+        removal_note: trimmedNote || null,
         removed_at: new Date().toISOString(),
         removed_by: user.id,
       },

@@ -140,7 +140,8 @@ export default function AddEquipmentModal({
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       const supabase = createClient()
-      const q = customerSearch.trim()
+      // Strip PostgREST filter-syntax chars before injecting into .or().
+      const q = customerSearch.trim().replace(/[,()]/g, ' ')
       const { data } = await supabase
         .from('customers')
         .select('id, name, account_number')
@@ -191,7 +192,7 @@ export default function AddEquipmentModal({
     productDebounceRef.current = setTimeout(async () => {
       setProductSearching(true)
       const supabase = createClient()
-      const q = productSearch.trim()
+      const q = productSearch.trim().replace(/[,()]/g, ' ')
       const { data } = await supabase
         .from('products')
         .select('id, synergy_id, number, description')

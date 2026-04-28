@@ -33,4 +33,5 @@ export const EMPTY_COMPLETION_FIELDS: PmTicketUpdate = {
   additional_hours_worked: null,
   machine_hours: null,
   date_code: null,
+  show_pricing: null,
 }

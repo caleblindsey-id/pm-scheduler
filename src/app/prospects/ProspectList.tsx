@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { InactiveEquipmentProspect } from '@/lib/db/equipment'
 import { Star, Trash2, Eye, EyeOff, ChevronRight, X } from 'lucide-react'
@@ -186,9 +186,8 @@ export default function ProspectList({ prospects }: ProspectListProps) {
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {active.map((p) => (
-                      <>
+                      <Fragment key={p.equipmentId}>
                         <tr
-                          key={p.equipmentId}
                           className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                           onClick={() => router.push(`/equipment/${p.equipmentId}`)}
                         >
@@ -273,7 +272,7 @@ export default function ProspectList({ prospects }: ProspectListProps) {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

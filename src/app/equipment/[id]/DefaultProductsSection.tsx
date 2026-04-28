@@ -47,7 +47,7 @@ export default function DefaultProductsSection({
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       const supabase = createClient()
-      const q = search.trim()
+      const q = search.trim().replace(/[,()]/g, ' ')
       const { data } = await supabase
         .from('products')
         .select('id, synergy_id, number, description')
@@ -112,14 +112,16 @@ export default function DefaultProductsSection({
     setError(null)
     setSaved(false)
 
-    const supabase = createClient()
-    const { error: updateError } = await supabase
-      .from('equipment')
-      .update({ default_products: products })
-      .eq('id', equipmentId)
-
-    if (updateError) {
-      setError(updateError.message)
+    // Server-side validation enforces quantity > 0 and synergy_product_id
+    // presence on each entry.
+    const res = await fetch(`/api/equipment/${equipmentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ default_products: products }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setError(data?.error || 'Failed to save default products.')
     } else {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -128,18 +130,18 @@ export default function DefaultProductsSection({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="px-5 py-4 border-b border-gray-200">
-        <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
           Default Products
         </h2>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
           Automatically included on every PM ticket at no charge
         </p>
       </div>
 
       <div className="p-5 space-y-4">
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>}
 
         {/* Product list */}
         {products.length > 0 && (
@@ -147,28 +149,28 @@ export default function DefaultProductsSection({
             {products.map((dp, idx) => (
               <div
                 key={dp.synergy_product_id}
-                className="flex items-center gap-2 bg-gray-50 rounded-md px-3 py-2 text-sm"
+                className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 rounded-md px-3 py-2 text-sm"
               >
-                <span className="flex-1 text-gray-900 truncate">{dp.description}</span>
+                <span className="flex-1 text-gray-900 dark:text-white truncate">{dp.description}</span>
                 <button
                   type="button"
                   onClick={() => updateQuantity(idx, -1)}
-                  className="p-1 text-gray-400 hover:text-gray-600"
+                  className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </button>
-                <span className="text-gray-700 font-medium w-6 text-center">{dp.quantity}</span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium w-6 text-center">{dp.quantity}</span>
                 <button
                   type="button"
                   onClick={() => updateQuantity(idx, 1)}
-                  className="p-1 text-gray-400 hover:text-gray-600"
+                  className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => removeProduct(idx)}
-                  className="p-1 text-red-400 hover:text-red-600 ml-1"
+                  className="p-1 text-red-400 dark:text-red-400 hover:text-red-600 ml-1"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -178,7 +180,7 @@ export default function DefaultProductsSection({
         )}
 
         {products.length === 0 && (
-          <p className="text-sm text-gray-500">No default products configured.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No default products configured.</p>
         )}
 
         {/* Search to add */}
@@ -190,29 +192,29 @@ export default function DefaultProductsSection({
             onFocus={() => { if (results.length > 0) setComboOpen(true) }}
             placeholder="Search products by number or description..."
             autoComplete="off"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
           />
           {searching && (
-            <p className="text-xs text-gray-400 mt-1">Searching...</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Searching...</p>
           )}
           {comboOpen && results.length > 0 && (
-            <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-auto text-sm">
+            <ul className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-48 overflow-auto text-sm">
               {results.map((p) => (
                 <li
                   key={p.id}
                   onMouseDown={() => selectProduct(p)}
-                  className="px-3 py-2 cursor-pointer hover:bg-slate-50"
+                  className="px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700"
                 >
                   <span className="font-medium text-gray-900">{p.number}</span>
                   {p.description && (
-                    <span className="text-gray-500 ml-2">{p.description}</span>
+                    <span className="text-gray-500 dark:text-gray-400 ml-2">{p.description}</span>
                   )}
                 </li>
               ))}
             </ul>
           )}
           {comboOpen && !searching && search.trim() && results.length === 0 && (
-            <p className="text-xs text-gray-400 mt-1">No products found.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No products found.</p>
           )}
         </div>
 
@@ -227,7 +229,7 @@ export default function DefaultProductsSection({
             >
               {saving ? 'Saving...' : 'Save Products'}
             </button>
-            {saved && <span className="text-sm text-green-600">Saved</span>}
+            {saved && <span className="text-sm text-green-600 dark:text-green-400">Saved</span>}
           </div>
         )}
       </div>

@@ -99,7 +99,7 @@ export default function ScheduleSection({ equipmentId, schedule }: ScheduleSecti
         {schedule && !editing && (
           <button
             onClick={() => setEditing(true)}
-            className="text-xs font-medium text-slate-700 hover:text-slate-900"
+            className="text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
           >
             Edit
           </button>

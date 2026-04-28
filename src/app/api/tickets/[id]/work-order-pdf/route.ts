@@ -40,6 +40,7 @@ export async function POST(
         additional_parts_used,
         additional_hours_worked,
         billing_amount,
+        show_pricing,
         customer_signature,
         customer_signature_name,
         photos,
@@ -197,7 +198,13 @@ export async function POST(
       grandTotal: number
     } | null = null
 
-    if (customer?.show_pricing_on_pm_pdf && raw.billing_amount != null) {
+    // Prefer the snapshotted ticket-level flag (set at completion time per
+    // migration 048), falling back to the live customer flag for legacy
+    // tickets that pre-date the snapshot column.
+    const showPricing = (raw as { show_pricing?: boolean | null }).show_pricing
+      ?? customer?.show_pricing_on_pm_pdf
+      ?? false
+    if (showPricing && raw.billing_amount != null) {
       const { data: laborSetting } = await supabase
         .from('settings')
         .select('value')

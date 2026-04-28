@@ -14,6 +14,12 @@ function calcNextServiceDate(
   now: Date,
   existingTicketKeys: Set<string>
 ): string | null {
+  // Sanity guards — corrupted schedule data could otherwise produce NaN dates
+  // or wrong cadences. Migration 048 also adds CHECK constraints so this is
+  // belt-and-suspenders going forward.
+  if (!Number.isFinite(intervalMonths) || intervalMonths <= 0) return null
+  if (!Number.isFinite(anchorMonth) || anchorMonth < 1 || anchorMonth > 12) return null
+
   const currentMonth = now.getMonth() + 1 // 1-12
   const currentYear = now.getFullYear()
 

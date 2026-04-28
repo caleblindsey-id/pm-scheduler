@@ -96,17 +96,17 @@ export default function EquipmentForm({ equipment, users, shipToLocations, isTec
           default_technician_id: defaultTechId || null,
           active,
         }
-    const { error: updateError } = await supabase
-      .from('equipment')
-      .update(updateData)
-      .eq('id', equipment.id)
 
-    if (updateError) {
-      if (updateError.code === '23505' && updateError.message?.includes('idx_equipment_customer_serial')) {
-        setError('This customer already has active equipment with that serial number.')
-      } else {
-        setError(updateError.message)
-      }
+    // Route through the server-side equipment PATCH so the role/field
+    // allowlist is enforced server-side, not just by client-side branching.
+    const res = await fetch(`/api/equipment/${equipment.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setError(data?.error || 'Failed to save equipment.')
     } else {
       setSuccess(true)
       router.refresh()

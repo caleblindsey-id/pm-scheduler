@@ -96,11 +96,13 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Single round trip: ticket state, ownership data, parts_requested, period, schedule pricing.
+    // Single round trip: ticket state, ownership data, parts_requested, period,
+    // schedule pricing, and the customer's show_pricing_on_pm_pdf flag (so we
+    // can snapshot it onto the ticket below).
     const supabase = await createClient()
     const { data: current, error: fetchError } = await supabase
       .from('pm_tickets')
-      .select('status, assigned_technician_id, parts_requested, month, year, pm_schedule_id, pm_schedules(flat_rate, billing_type)')
+      .select('status, assigned_technician_id, parts_requested, month, year, pm_schedule_id, pm_schedules(flat_rate, billing_type), customers(show_pricing_on_pm_pdf)')
       .eq('id', id)
       .is('deleted_at', null)
       .single()
@@ -180,6 +182,12 @@ export async function POST(
     )
     const finalBillingAmount = flatRate + (finalAdditionalHours * laborRate) + additionalPartsTotal
 
+    // Snapshot the customer's pricing-visibility flag onto the ticket so future
+    // PDF regenerations are stable even if the customer flag is later toggled.
+    const customerJoin = current.customers as { show_pricing_on_pm_pdf?: boolean } | { show_pricing_on_pm_pdf?: boolean }[] | null
+    const customerRow = Array.isArray(customerJoin) ? customerJoin[0] : customerJoin
+    const showPricingSnapshot = customerRow?.show_pricing_on_pm_pdf ?? false
+
     const updated = await completeTicket(id, {
       completedDate,
       hoursWorked,
@@ -197,6 +205,7 @@ export async function POST(
       additionalHoursWorked: finalAdditionalHours,
       machineHours,
       dateCode: dateCode.trim(),
+      showPricing: showPricingSnapshot,
     })
 
     // Slide billing period to completion month if work happened in a different month

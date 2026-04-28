@@ -30,14 +30,15 @@ export default function CustomerList({ customers }: CustomerListProps) {
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       const supabase = createClient()
-      const q = search.trim()
+      // Strip PostgREST filter-syntax chars before injecting into .or().
+      const q = search.trim().replace(/[,()]/g, ' ')
       const { data } = await supabase
         .from('customers')
-        .select('*')
+        .select('id, name, account_number, ar_terms, credit_hold, active, billing_city, billing_state, po_required, show_pricing_on_pm_pdf')
         .or(`name.ilike.%${q}%,account_number.ilike.%${q}%`)
         .order('name')
         .limit(50)
-      setDisplayedCustomers(data ?? [])
+      setDisplayedCustomers((data ?? []) as unknown as typeof customers)
       setSearching(false)
     }, 300)
 

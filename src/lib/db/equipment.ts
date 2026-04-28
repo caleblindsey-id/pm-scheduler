@@ -35,9 +35,17 @@ export async function getEquipment(filters?: {
 }): Promise<EquipmentWithCustomer[]> {
   const supabase = await createClient()
 
+  // Listing query: avoid pulling default_products JSONB on every row.
   let query = supabase
     .from('equipment')
-    .select('*, customers(name), pm_schedules(interval_months, anchor_month, active)')
+    .select(`
+      id, customer_id, make, model, serial_number, description,
+      location_on_site, default_technician_id, ship_to_location_id,
+      contact_name, contact_email, contact_phone, blanket_po_number,
+      active, created_at, updated_at,
+      customers(name),
+      pm_schedules(interval_months, anchor_month, active)
+    `)
     .order('created_at', { ascending: false })
 
   if (filters?.customerId !== undefined) {

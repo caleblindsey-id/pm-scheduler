@@ -322,11 +322,49 @@ def sync_customers(conn) -> int:
             "billing_state": safe_str(row.State),
             "billing_zip": safe_str(row.Zip4),
             "po_required": bool(row.PORequiredFlag) if row.PORequiredFlag is not None else False,
+            "active": True,  # explicit — anything falling out of the result set will be deactivated below
             "synced_at": utcnow_iso(),
         })
 
     count = upsert_in_batches(customers, "customers")
     log.info(f"  Customers synced: {count}")
+
+    # Deactivate any customer whose synergy_id is NOT in this batch — handles
+    # the "renamed to *CLOSED*" / "*DO NOT USE*" cases where the row drops out
+    # of the source query but still exists in CallBoard. Done in chunks to
+    # respect URL-length limits when the active set is large.
+    deactivated = 0
+    if customers:
+        active_ids = [c["synergy_id"] for c in customers]
+        # PostgREST in.() filter — chunk to ~250 ids per request to stay
+        # well under any URL length cap.
+        chunk_size = 250
+        # First pass: collect ids of currently-active rows to deactivate.
+        # We can't directly do "synergy_id NOT IN (...)" with a giant list
+        # in one go, so deactivate via a server-side UPDATE that targets
+        # only currently active rows and excludes the active set in chunks.
+        # Simpler approach: pull current active synergy_ids, diff in Python,
+        # then PATCH active=false for the diff.
+        active_set = set(active_ids)
+        cursor_url = f"{SUPABASE_URL}/rest/v1/customers?select=synergy_id&active=eq.true"
+        try:
+            existing_resp = requests.get(cursor_url, headers=supabase_headers(), timeout=30)
+            existing_resp.raise_for_status()
+            existing_active = [r["synergy_id"] for r in existing_resp.json() if r.get("synergy_id")]
+            stale = [sid for sid in existing_active if sid not in active_set]
+            for i in range(0, len(stale), chunk_size):
+                batch = stale[i : i + chunk_size]
+                in_filter = ",".join(batch)
+                patch_url = f"{SUPABASE_URL}/rest/v1/customers?synergy_id=in.({in_filter})"
+                patch_headers = supabase_headers()
+                patch_headers["Prefer"] = "return=minimal"
+                requests.patch(patch_url, json={"active": False}, headers=patch_headers, timeout=30)
+                deactivated += len(batch)
+            if deactivated:
+                log.info(f"  Customers deactivated (no longer in Synergy result): {deactivated}")
+        except Exception as e:
+            log.warning(f"  Could not deactivate stale customers: {e}")
+
     return count
 
 
@@ -453,8 +491,12 @@ def sync_contacts(conn, known_tables: set[str]) -> int:
             seen.add(sid)
             insertable.append(c)
 
-    # Truncate and re-insert: contacts has no named unique constraint on synergy_id
-    # that PostgREST can use for on_conflict, so delete-then-insert is cleaner
+    # KNOWN LIMITATION (QC-section-6 EQ-3): delete-then-insert is non-atomic.
+    # If the network drops between the DELETE and the upsert below, the contacts
+    # table will be wiped until the next nightly run. Future fix: add a UNIQUE
+    # constraint on (customer_id, synergy_id) and switch to PostgREST upsert
+    # with on_conflict, eliminating the destructive sweep. Tracked in the
+    # callboard-qc Section 6 doc.
     if insertable:
         try:
             del_url = f"{SUPABASE_URL}/rest/v1/contacts?id=gte.0"

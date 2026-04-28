@@ -226,6 +226,7 @@ export async function completeTicket(
     additionalHoursWorked: number
     machineHours: number
     dateCode: string
+    showPricing: boolean
   }
 ): Promise<PmTicketRow> {
   const supabase = await createClient()
@@ -250,6 +251,7 @@ export async function completeTicket(
       additional_hours_worked: data.additionalHoursWorked,
       machine_hours: data.machineHours,
       date_code: data.dateCode,
+      show_pricing: data.showPricing,
     })
     .eq('id', id)
     .is('deleted_at', null)
