@@ -120,6 +120,13 @@ def supabase_patch(table: str, match: dict, data: dict) -> None:
 
 
 def supabase_upsert(table: str, rows: list[dict], on_conflict: str) -> None:
+    """Upsert with ignore-duplicates semantics — confirmed/dismissed candidates
+    are never clobbered when re-scanning. KNOWN LIMITATION: pending candidates
+    do not refresh their order_total / order_lines if Synergy mutates the
+    invoice (credit memo, line correction). Refreshing pending rows would
+    require either a Postgres function (atomic conditional merge on
+    status='pending') or a two-pass approach. Tracked in the QC review
+    (TL-19) for a future improvement."""
     if not rows:
         return
     url = f"{SUPABASE_URL}/rest/v1/{table}"

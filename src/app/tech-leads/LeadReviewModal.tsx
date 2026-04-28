@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import type { TechLeadWithJoins } from '@/lib/db/tech-leads'
+import { tierLabel, EQUIPMENT_SALE_TIERS } from '@/lib/tech-leads/bonus-tiers'
 
 interface Props {
   lead: TechLeadWithJoins | null
@@ -24,6 +25,16 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
       setSubmitting(false)
     }
   }, [lead])
+
+  // Escape-to-dismiss
+  useEffect(() => {
+    if (!lead) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [lead, submitting, onClose])
 
   if (!lead) return null
 
@@ -64,13 +75,32 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
       ? `${lead.customer_name_text} (new customer — not yet in system)`
       : '—'
 
+  const isEquipmentSale = lead.lead_type === 'equipment_sale'
+  const proposedTier = lead.proposed_equipment_tier
+  const tierBonus = proposedTier && proposedTier in EQUIPMENT_SALE_TIERS
+    ? EQUIPMENT_SALE_TIERS[proposedTier].amount
+    : null
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lead-review-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) onClose()
+      }}
+    >
       <div className="fixed inset-0 bg-black/50" aria-hidden="true" onClick={onClose} />
       <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4 max-h-[95vh] overflow-y-auto">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+          <h3 id="lead-review-title" className="text-base font-semibold text-gray-900 dark:text-white">
             Review tech lead
+            {isEquipmentSale && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                Equipment sale
+              </span>
+            )}
           </h3>
           <button
             type="button"
@@ -84,11 +114,31 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
         <div className="px-5 py-4 space-y-3 text-sm">
           <Field label="Tech">{lead.submitter?.name ?? '—'}</Field>
           <Field label="Customer">{customerLabel}</Field>
-          <Field label="Equipment">
-            <p className="whitespace-pre-wrap break-words">{lead.equipment_description}</p>
-          </Field>
-          {lead.proposed_pm_frequency && (
-            <Field label="Proposed frequency">{lead.proposed_pm_frequency}</Field>
+          {isEquipmentSale ? (
+            <>
+              <Field label="Proposed equipment tier">
+                {proposedTier ? tierLabel(proposedTier) : '—'}
+                {tierBonus != null && (
+                  <span className="ml-2 text-xs text-emerald-700 dark:text-emerald-400">
+                    (${tierBonus} bonus on confirmed match)
+                  </span>
+                )}
+              </Field>
+              {lead.expires_at && (
+                <Field label="Match window">
+                  expires {new Date(lead.expires_at).toLocaleDateString()}
+                </Field>
+              )}
+            </>
+          ) : (
+            <>
+              <Field label="Equipment">
+                <p className="whitespace-pre-wrap break-words">{lead.equipment_description}</p>
+              </Field>
+              {lead.proposed_pm_frequency && (
+                <Field label="Proposed frequency">{lead.proposed_pm_frequency}</Field>
+              )}
+            </>
           )}
           {lead.notes && (
             <Field label="Notes">
@@ -98,7 +148,7 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
         </div>
 
         {error && (
-          <p className="px-5 text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="px-5 text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
         )}
 
         {mode === 'choose' ? (

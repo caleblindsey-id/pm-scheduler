@@ -3,6 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, RESET_ROLES } from '@/lib/auth'
 import type { TechLeadUpdate } from '@/types/database'
 
+const REASON_MAX_LEN = 1000
+
+function clampReason(s: string | null | undefined): string {
+  return (s ?? '').trim().slice(0, REASON_MAX_LEN)
+}
+
 type Action =
   | 'approve'
   | 'reject'
@@ -39,7 +45,7 @@ export async function POST(
     const supabase = await createClient()
     const { data: lead, error: fetchErr } = await supabase
       .from('tech_leads')
-      .select('id, status, customer_id, customer_name_text, equipment_id')
+      .select('id, status, customer_id, customer_name_text, equipment_id, lead_type')
       .eq('id', id)
       .single()
     if (fetchErr || !lead) {
@@ -81,7 +87,7 @@ export async function POST(
           status: 'rejected',
           approved_by: user.id,
           approved_at: now,
-          rejected_reason: reason.trim(),
+          rejected_reason: clampReason(reason),
         }
         break
       }
@@ -98,9 +104,25 @@ export async function POST(
             { status: 400 }
           )
         }
+
+        // If cancelling a match_pending equipment-sale lead, dismiss its
+        // remaining pending candidates so they don't linger orphaned.
+        if (lead.status === 'match_pending') {
+          await supabase
+            .from('equipment_sale_lead_candidates')
+            .update({ status: 'dismissed', reviewed_by: user.id, reviewed_at: now })
+            .eq('tech_lead_id', id)
+            .eq('status', 'pending')
+        }
+
+        // Clear equipment_id on cancel so the partial unique index slot is
+        // released. (Migration 047 also tightens the index to exclude
+        // cancelled/rejected/expired status; this clear is belt-and-suspenders
+        // for any pre-047 leads whose status drifted.)
         update = {
           status: 'cancelled',
-          cancelled_reason: reason.trim(),
+          cancelled_reason: clampReason(reason),
+          equipment_id: null,
         }
         break
       }
@@ -124,6 +146,15 @@ export async function POST(
         if (!equipment_id) {
           return NextResponse.json({ error: 'equipment_id is required.' }, { status: 400 })
         }
+        // Equipment linking is a PM-only action — the earn trigger only fires
+        // for lead_type='pm', so linking equipment to an equipment_sale lead
+        // would just occupy the unique-index slot without ever earning.
+        if (lead.lead_type !== 'pm') {
+          return NextResponse.json(
+            { error: 'Only PM leads can have equipment linked.' },
+            { status: 400 }
+          )
+        }
         if (lead.status !== 'approved') {
           return NextResponse.json(
             { error: `Cannot link equipment to a lead in status '${lead.status}'.` },
@@ -134,6 +165,26 @@ export async function POST(
           return NextResponse.json(
             { error: 'Lead already has equipment linked.' },
             { status: 400 }
+          )
+        }
+        // Verify the equipment belongs to this lead's customer. Without this
+        // check, the SECURITY DEFINER earn trigger would pay out a bonus on
+        // equipment unrelated to the original tip (cross-customer poisoning).
+        if (!lead.customer_id) {
+          return NextResponse.json(
+            { error: 'Lead must have a linked customer before equipment can be linked.' },
+            { status: 400 }
+          )
+        }
+        const { data: equip } = await supabase
+          .from('equipment')
+          .select('customer_id')
+          .eq('id', equipment_id)
+          .maybeSingle()
+        if (!equip || equip.customer_id !== lead.customer_id) {
+          return NextResponse.json(
+            { error: "Equipment does not belong to this lead's customer." },
+            { status: 422 }
           )
         }
         update = { equipment_id }

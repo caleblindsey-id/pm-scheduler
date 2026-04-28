@@ -1,5 +1,13 @@
 import type { EquipmentSaleTier } from '@/types/database'
 
+// IMPORTANT: bonus_amount is SNAPSHOTTED on the tech_leads row at the moment a
+// match is confirmed (see /api/tech-leads/[id]/candidates/[candidateId]/confirm).
+// Editing the amounts below does NOT retroactively change already-earned leads —
+// the stored bonus_amount on those rows is the canonical payout figure. If the
+// rate card changes, leads earned after the change will use the new amount;
+// leads earned before will keep their snapshotted amount. Leave a changelog note
+// when adjusting these so payroll can reconcile.
+
 export interface EquipmentSaleTierInfo {
   value: EquipmentSaleTier
   label: string

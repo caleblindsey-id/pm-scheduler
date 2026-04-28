@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { TechLeadStatus, TechLeadType, UserRole } from '@/types/database'
+import type { TechLeadStatus, TechLeadType } from '@/types/database'
 import type { TechLeadWithJoins } from '@/lib/db/tech-leads'
 import type { CandidateWithLead } from '@/lib/db/equipment-sale-candidates'
 import { tierLabel } from '@/lib/tech-leads/bonus-tiers'
@@ -17,7 +17,6 @@ type TypeFilter = 'all' | TechLeadType
 interface Props {
   leads: TechLeadWithJoins[]
   candidatesByLead: Record<string, CandidateWithLead[]>
-  userRole?: UserRole | null
 }
 
 const TABS: { key: TabKey; label: string }[] = [

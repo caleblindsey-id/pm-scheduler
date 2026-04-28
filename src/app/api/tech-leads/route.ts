@@ -19,6 +19,12 @@ const VALID_FREQUENCIES: TechLeadFrequency[] = [
 
 const VALID_TIERS: EquipmentSaleTier[] = Object.keys(EQUIPMENT_SALE_TIERS) as EquipmentSaleTier[]
 
+// Free-text caps applied server-side. Mirrors the soft-cap a future migration
+// can add as DB CHECK constraints.
+const EQUIPMENT_DESCRIPTION_MAX = 500
+const NOTES_MAX = 1000
+const CUSTOMER_NAME_MAX = 200
+
 type CreateBody = {
   lead_type?: TechLeadType
   customer_id?: number | null
@@ -66,8 +72,8 @@ export async function POST(request: NextRequest) {
       submitted_by: user.id,
       lead_type: leadType,
       customer_id: hasExisting ? body.customer_id! : null,
-      customer_name_text: hasFreeText ? body.customer_name_text!.trim() : null,
-      notes: body.notes?.trim() || null,
+      customer_name_text: hasFreeText ? body.customer_name_text!.trim().slice(0, CUSTOMER_NAME_MAX) : null,
+      notes: body.notes?.trim().slice(0, NOTES_MAX) || null,
       equipment_description: '', // set per branch below
     }
 
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      insert.equipment_description = body.equipment_description.trim()
+      insert.equipment_description = body.equipment_description.trim().slice(0, EQUIPMENT_DESCRIPTION_MAX)
       insert.proposed_pm_frequency = body.proposed_pm_frequency ?? null
     } else {
       // equipment_sale

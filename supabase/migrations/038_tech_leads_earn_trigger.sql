@@ -65,4 +65,4 @@ CREATE TRIGGER earn_tech_lead_on_pm_completion_trg
   EXECUTE FUNCTION earn_tech_lead_on_pm_completion();
 
 COMMENT ON FUNCTION earn_tech_lead_on_pm_completion() IS
-  'Earns an approved tech_lead on first eligible PM completion. Eligible = schedule.billing_type=flat_rate AND interval_months IN (1,2,3). SECURITY DEFINER bypasses tech_leads UPDATE RLS so techs can complete their own tickets without explicit permission on tech_leads.';
+  'Earns an approved tech_lead on first eligible PM completion. Eligible = schedule.billing_type=flat_rate AND interval_months IN (1,2,3). SECURITY DEFINER bypasses tech_leads UPDATE RLS so techs can complete their own tickets without explicit permission on tech_leads. NOTE: trigger is AFTER UPDATE OF status only — a direct INSERT with status=completed (e.g. seed/migration data) will NOT fire this trigger. Normal app flow always transitions through unassigned/assigned/in_progress, so this gap is unreachable from the UI.';

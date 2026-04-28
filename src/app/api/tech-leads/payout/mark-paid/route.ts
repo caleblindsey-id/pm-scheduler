@@ -53,7 +53,11 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString()
-    const { error: writeErr } = await supabase
+    // Atomic compare-and-swap: filter on status='earned' in the UPDATE itself.
+    // If a concurrent writer flipped a lead away from earned (cancel, etc.)
+    // between our SELECT and UPDATE, that row simply doesn't match and we
+    // return a 409 to the caller.
+    const { data: written, error: writeErr } = await supabase
       .from('tech_leads')
       .update({
         status: 'paid',
@@ -62,12 +66,20 @@ export async function POST(request: NextRequest) {
         payout_period,
       })
       .in('id', lead_ids)
+      .eq('status', 'earned')
+      .select('id')
     if (writeErr) {
       console.error('mark-paid write error:', writeErr)
       return NextResponse.json({ error: 'Failed to mark leads paid.' }, { status: 500 })
     }
+    if (!written || written.length !== lead_ids.length) {
+      return NextResponse.json(
+        { error: 'One or more leads were already processed. Refresh and try again.' },
+        { status: 409 }
+      )
+    }
 
-    return NextResponse.json({ success: true, marked: lead_ids.length })
+    return NextResponse.json({ success: true, marked: written.length })
   } catch (err) {
     console.error('mark-paid POST error:', err)
     return NextResponse.json({ error: 'Failed to mark leads paid.' }, { status: 500 })

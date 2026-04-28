@@ -111,7 +111,8 @@ export default function CreateEquipmentFromLeadModal({ lead, onClose, onDone }: 
     debounceRef.current = setTimeout(async () => {
       setSearching(true)
       const supabase = createClient()
-      const q = customerSearch.trim()
+      // Strip PostgREST filter-syntax chars before injecting into .or().
+      const q = customerSearch.trim().replace(/[,()]/g, ' ')
       const { data } = await supabase
         .from('customers')
         .select('id, name, account_number')
@@ -163,63 +164,32 @@ export default function CreateEquipmentFromLeadModal({ lead, onClose, onDone }: 
     }
 
     setSubmitting(true)
-    const supabase = createClient()
 
     try {
-      // Step 1: link_customer first if the lead was submitted as free-text
-      if (!lead.customer_id) {
-        const linkRes = await fetch(`/api/tech-leads/${lead.id}/update`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'link_customer', customer_id: customerId }),
-        })
-        const linkBody = await linkRes.json().catch(() => ({}))
-        if (!linkRes.ok) throw new Error(linkBody?.error || 'Failed to link customer.')
-      }
-
-      // Step 2: insert equipment
-      const { data: equipmentRow, error: eqErr } = await supabase
-        .from('equipment')
-        .insert({
+      // Single server-side call wraps link_customer + equipment insert +
+      // pm_schedule insert + link_equipment with rollback on failure (see
+      // /api/tech-leads/[id]/create-equipment-from-lead).
+      const flatRateNum = billingType === 'flat_rate' ? parseFloat(flatRate) : null
+      const res = await fetch(`/api/tech-leads/${lead.id}/create-equipment-from-lead`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           customer_id: customerId,
           make: make.trim() || null,
           model: model.trim() || null,
           serial_number: serialNumber.trim() || null,
           description: description.trim() || null,
           location_on_site: locationOnSite.trim() || null,
-          active: true,
-        })
-        .select('id')
-        .single()
-      if (eqErr || !equipmentRow) {
-        throw new Error(eqErr?.message || 'Failed to create equipment.')
-      }
-
-      // Step 3: insert pm_schedule
-      const flatRateNum = billingType === 'flat_rate' ? parseFloat(flatRate) : null
-      const { error: schedErr } = await supabase
-        .from('pm_schedules')
-        .insert({
-          equipment_id: equipmentRow.id,
           interval_months: intervalMonths,
           anchor_month: anchorMonth,
           billing_type: billingType,
           flat_rate: flatRateNum,
-          active: true,
-        })
-      if (schedErr) {
-        throw new Error(schedErr.message || 'Failed to create PM schedule.')
-      }
-
-      // Step 4: link equipment back to the lead
-      const linkEqRes = await fetch(`/api/tech-leads/${lead.id}/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'link_equipment', equipment_id: equipmentRow.id }),
+        }),
       })
-      const linkEqBody = await linkEqRes.json().catch(() => ({}))
-      if (!linkEqRes.ok) throw new Error(linkEqBody?.error || 'Failed to link equipment to lead.')
-
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to create equipment from lead.')
+      }
       onDone()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create equipment from lead.')

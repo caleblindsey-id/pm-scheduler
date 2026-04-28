@@ -36,7 +36,12 @@ function formatMoney(n: number | null): string {
 
 function escapeCsv(v: string | number | null): string {
   if (v == null) return ''
-  const s = String(v)
+  let s = String(v)
+  // Formula-injection guard: if the value starts with a spreadsheet trigger
+  // char, prefix with a single-quote so Excel/Sheets treats it as text.
+  if (/^[=+\-@]/.test(s)) {
+    s = `'${s}`
+  }
   if (s.includes(',') || s.includes('"') || s.includes('\n')) {
     return `"${s.replace(/"/g, '""')}"`
   }
@@ -59,8 +64,10 @@ export default function PayoutReport({ leads }: Props) {
   const [message, setMessage] = useState<string | null>(null)
 
   const inRange = useMemo(() => {
-    const fromTs = new Date(from + 'T00:00:00').getTime()
-    const toTs   = new Date(to   + 'T23:59:59').getTime()
+    // UTC anchoring on both boundaries so the range matches the UTC dates the
+    // firstOfMonth / lastOfMonth helpers produce.
+    const fromTs = new Date(from + 'T00:00:00Z').getTime()
+    const toTs   = new Date(to   + 'T23:59:59Z').getTime()
     return leads.filter(l => {
       if (l.status !== 'earned' && !(includePaid && l.status === 'paid')) return false
       if (!l.earned_at) return false
@@ -116,7 +123,9 @@ export default function PayoutReport({ leads }: Props) {
       ]
     })
     const csv = [header, ...rows].map(r => r.map(escapeCsv).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    // UTF-8 BOM so Excel on Windows auto-detects encoding and renders accented
+    // characters in customer/tech names correctly.
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
