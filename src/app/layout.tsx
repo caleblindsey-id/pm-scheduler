@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { cookies } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import LayoutShell from '@/components/LayoutShell'
@@ -27,25 +26,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Cookie refresh is handled by the proxy on cookie-miss (src/proxy.ts) — no
+  // need to duplicate the role + must-change-pw cookie set on every page load.
+  // getCurrentUser() is cached per-request, so layout + page share one fetch.
   const dbUser = await getCurrentUser()
-
-  // Refresh auth cookies on every full page load
-  if (dbUser?.role) {
-    try {
-      const cookieStore = await cookies()
-      const cookieOpts = {
-        httpOnly: true,
-        sameSite: 'strict' as const,
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: 300, // 5 minutes — bounds role/forced-change staleness across role demotions
-      }
-      cookieStore.set('pm-role', dbUser.role, cookieOpts)
-      cookieStore.set('pm-must-change-pw', dbUser.must_change_password ? 'true' : 'false', cookieOpts)
-    } catch {
-      // Cookie setting can fail in certain server component contexts — non-fatal
-    }
-  }
 
   const userContext = dbUser?.role
     ? { id: dbUser.id, role: dbUser.role, name: dbUser.name }

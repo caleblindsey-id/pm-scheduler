@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { getTickets, getOverdueTicketCount, getSkipRequestedCount, getNeedsReviewCount } from '@/lib/db/tickets'
 import { getServiceTicketCounts, getPartsToOrderCount, getPartsOnOrderCount, getPartsReadyForPickupCount } from '@/lib/db/service-tickets'
 import { getCurrentUser, isTechnician } from '@/lib/auth'
@@ -481,7 +482,13 @@ export default async function DashboardPage() {
       {!isTech && (
         <div>
           <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Sync Status</h2>
-          <SyncStatusBanner />
+          <Suspense fallback={
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+              <div className="h-5 w-40 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+            </div>
+          }>
+            <SyncStatusBanner />
+          </Suspense>
         </div>
       )}
     </div>

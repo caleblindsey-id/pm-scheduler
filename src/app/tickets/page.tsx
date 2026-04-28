@@ -72,7 +72,8 @@ export default async function TicketsPage({
               ? (isTech ? Promise.resolve([]) : getTickets(needsReviewFilters))
               : getTickets(monthFilters),
       deletedMode || skipRequestedMode || needsReviewMode ? Promise.resolve([]) : getTickets(overdueFilters),
-      getUsers(true),
+      // Techs don't see assignment dropdowns — skip the users fetch.
+      isTech ? Promise.resolve([] as Awaited<ReturnType<typeof getUsers>>) : getUsers(true),
     ])
   } catch {
     fetchError = true

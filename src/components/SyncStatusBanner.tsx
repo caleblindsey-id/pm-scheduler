@@ -1,43 +1,31 @@
-'use client'
+import { CheckCircle, XCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
 
-import { useEffect, useState } from 'react'
-import { RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+// Server component — reads sync_log directly. Replaces the prior client-side
+// useEffect + /api/sync/status fetch, which forced a second round-trip after
+// page paint. Manager+ gating is done by the caller (src/app/page.tsx).
 
-interface SyncStatus {
-  last_sync: {
-    sync_type: string
-    started_at: string
-    completed_at: string | null
-    records_synced: number | null
-    status: string | null
-    error_message: string | null
-  } | null
+interface SyncRow {
+  sync_type: string
+  started_at: string
+  completed_at: string | null
+  records_synced: number | null
+  status: string | null
+  error_message: string | null
 }
 
-export default function SyncStatusBanner() {
-  const [data, setData] = useState<SyncStatus | null>(null)
-  const [loading, setLoading] = useState(true)
+export default async function SyncStatusBanner() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('sync_log')
+    .select('sync_type, started_at, completed_at, records_synced, status, error_message')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  useEffect(() => {
-    fetch('/api/sync/status')
-      .then((res) => res.json())
-      .then((json) => setData(json))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false))
-  }, [])
+  const sync = data as SyncRow | null
 
-  if (loading) {
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center gap-2 text-gray-400">
-          <RefreshCw className="h-4 w-4 animate-spin text-gray-400 dark:text-gray-500" />
-          <span className="text-sm text-gray-400 dark:text-gray-500">Loading sync status...</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (!data?.last_sync) {
+  if (!sync) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">No sync history available.</p>
@@ -45,7 +33,6 @@ export default function SyncStatusBanner() {
     )
   }
 
-  const sync = data.last_sync
   const isSuccess = sync.status === 'success'
   const completedAt = sync.completed_at
     ? new Date(sync.completed_at).toLocaleString()

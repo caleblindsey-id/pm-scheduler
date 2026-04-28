@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/db/users'
@@ -10,7 +11,10 @@ export function isTechnician(role: UserRole | null): boolean {
   return role === 'technician'
 }
 
-export async function getCurrentUser(): Promise<UserRow | null> {
+// React cache() dedupes within a single request render — layout, page, and any
+// nested server components calling getCurrentUser() share one fetch (one
+// supabase.auth.getUser() + one users-table lookup) instead of N round-trips.
+export const getCurrentUser = cache(async (): Promise<UserRow | null> => {
   try {
     const supabase = await createClient()
     const { data: { user }, error } = await supabase.auth.getUser()
@@ -19,7 +23,7 @@ export async function getCurrentUser(): Promise<UserRow | null> {
   } catch {
     return null
   }
-}
+})
 
 export async function requireRole(...roles: UserRole[]): Promise<UserRow> {
   const user = await getCurrentUser()

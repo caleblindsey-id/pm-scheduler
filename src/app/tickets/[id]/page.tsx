@@ -26,8 +26,22 @@ export default async function TicketDetailPage({
   const { id } = await params
   // Include deleted tickets so managers can render the restore banner.
   // Techs are filtered out via the isTechnician check below.
-  const [ticket, user, laborRateStr] = await Promise.all([
-    getTicket(id, { includeDeleted: true }),
+  //
+  // Service history depends on the ticket (needs equipment_id), so it can't
+  // sit in the top-level Promise.all alongside user / laborRate. We kick off
+  // a chained fetch that starts as soon as the ticket lands — total wait is
+  // max(ticket+history, user, laborRate) instead of (ticket+history) plus
+  // user/laborRate sequentially.
+  const ticketAndHistoryPromise = getTicket(id, { includeDeleted: true }).then(
+    async (t) => {
+      if (!t || !t.equipment_id) return { ticket: t, serviceHistory: [] as Awaited<ReturnType<typeof getEquipmentServiceHistory>> }
+      const sh = await getEquipmentServiceHistory(t.equipment_id, t.id)
+      return { ticket: t, serviceHistory: sh }
+    }
+  )
+
+  const [{ ticket, serviceHistory }, user, laborRateStr] = await Promise.all([
+    ticketAndHistoryPromise,
     getCurrentUser(),
     getSetting('labor_rate_per_hour'),
   ])
@@ -48,10 +62,6 @@ export default async function TicketDetailPage({
   const canRestore = !isTechnician(user?.role ?? null) && RESET_ROLES.includes(user?.role ?? ('' as never))
 
   const laborRate = laborRateStr ? parseFloat(laborRateStr) : 75
-
-  const serviceHistory = ticket.equipment_id
-    ? await getEquipmentServiceHistory(ticket.equipment_id, ticket.id)
-    : []
 
   const showBilling = !isTechnician(user?.role ?? null)
 
