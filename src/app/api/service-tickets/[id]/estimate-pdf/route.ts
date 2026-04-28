@@ -145,9 +145,13 @@ export async function POST(
     // EstimateDocument is a typed wrapper around <Document>. Using
     // React.createElement with explicit props gives us prop-typed errors at
     // build time without falling back to `as any`.
+    const { getSetting } = await import('@/lib/db/settings')
+    const companyName = (await getSetting('company_name')) || undefined
+
     const element = React.createElement(EstimateDocument, {
       estimate,
       logoBase64,
+      companyName,
     })
 
     let buffer: Buffer

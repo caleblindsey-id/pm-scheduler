@@ -627,6 +627,15 @@ export function CustomerWorkOrderDocument({ ticket, logoBase64 }: WorkOrderDocum
           />
         )}
 
+        {/* Tax disclaimer — always rendered, even when pricing is hidden,
+            so the customer is consistently reminded that any quoted figures
+            exclude applicable taxes. */}
+        {!ticket.pricing && (
+          <Text style={{ fontSize: 8, color: '#888888', marginTop: 12, textAlign: 'center' }}>
+            Final billing is sent separately. Any amounts referenced do not include applicable taxes.
+          </Text>
+        )}
+
         {/* Customer Signature */}
         {ticket.customerSignature && (
           <View style={styles.signatureBlock} wrap={false}>

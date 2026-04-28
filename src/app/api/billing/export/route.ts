@@ -38,18 +38,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Listing endpoint — narrow to the columns the UI actually renders.
+    // `select('*')` previously leaked customer_signature (base64 blobs),
+    // photos JSONB, parts arrays, completion notes, and billing contact
+    // fields to every coordinator who hit this endpoint.
+    //
+    // Filter by completed_date range to match the billing page's
+    // getBillingTickets — previously this filtered by month/year columns,
+    // which can drift from completed_date when the cross-month-completion
+    // slide hits a unique-constraint conflict.
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const nextMonth = month === 12 ? 1 : month + 1
+    const nextYear = month === 12 ? year + 1 : year
+    const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+
     const { data, error } = await supabase
       .from('pm_tickets')
       .select(`
-        *,
-        customers(name, account_number),
-        equipment(make, model, serial_number),
+        id, work_order_number, completed_date, hours_worked, billing_amount,
+        billing_exported, status, po_number, month, year,
+        customers(name, account_number, ar_terms, po_required),
+        equipment(make, model),
         users!assigned_technician_id(name)
       `)
       .eq('status', 'completed')
       .eq('billing_exported', false)
-      .eq('month', month)
-      .eq('year', year)
+      .gte('completed_date', startDate)
+      .lt('completed_date', endDate)
       .is('deleted_at', null)
       .order('customer_id')
 

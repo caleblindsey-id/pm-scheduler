@@ -46,7 +46,8 @@ export async function POST(
         photos,
         assigned_technician_id,
         customers(name, account_number, billing_address, billing_city, billing_state, billing_zip, show_pricing_on_pm_pdf),
-        equipment(make, model, serial_number, location_on_site, contact_name, contact_email, contact_phone, ship_to_locations(address, city, state, zip), pm_schedules(flat_rate, billing_type, active)),
+        equipment(make, model, serial_number, location_on_site, contact_name, contact_email, contact_phone, ship_to_locations(address, city, state, zip)),
+        schedule:pm_schedules!pm_schedule_id(flat_rate, billing_type),
         technician:users!assigned_technician_id(name)
       `)
       .eq('id', id)
@@ -133,17 +134,16 @@ export async function POST(
     // Build service location
     const shipTo = (raw.equipment as Record<string, unknown>)?.ship_to_locations as { address?: string; city?: string; state?: string; zip?: string } | null
     const customer = raw.customers as { name: string; account_number: string | null; billing_address: string | null; billing_city: string | null; billing_state: string | null; billing_zip: string | null; show_pricing_on_pm_pdf: boolean } | null
-    const equipment = raw.equipment as { make: string | null; model: string | null; serial_number: string | null; location_on_site: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; pm_schedules: Array<{ flat_rate: number | null; billing_type: string | null; active: boolean }> | { flat_rate: number | null; billing_type: string | null; active: boolean } | null } | null
+    const equipment = raw.equipment as { make: string | null; model: string | null; serial_number: string | null; location_on_site: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null } | null
 
-    // Pick the active PM schedule for this equipment (Supabase returns array
-    // for a child table; some responses collapse to a single object).
-    const rawSchedules = equipment?.pm_schedules
-    const scheduleList = Array.isArray(rawSchedules)
-      ? rawSchedules
-      : rawSchedules
-        ? [rawSchedules]
-        : []
-    const activeSchedule = scheduleList.find((s) => s.active) ?? scheduleList[0] ?? null
+    // Read the schedule the ticket was actually generated against (via the
+    // ticket's pm_schedule_id) rather than picking from the equipment's
+    // current schedule list. Without this, a customer with a deactivated old
+    // schedule + active new schedule would silently see new pricing on
+    // historical PDFs.
+    const rawSchedule = (raw as { schedule?: { flat_rate: number | null; billing_type: string | null } | { flat_rate: number | null; billing_type: string | null }[] | null }).schedule
+    const scheduleObj = Array.isArray(rawSchedule) ? rawSchedule[0] : rawSchedule
+    const activeSchedule = scheduleObj ?? null
 
     let serviceLocation: string | null = null
     if (shipTo && (shipTo.address || shipTo.city)) {

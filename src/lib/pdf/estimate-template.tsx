@@ -34,6 +34,7 @@ interface EstimateData {
 interface EstimateDocumentProps {
   estimate: EstimateData
   logoBase64: string | null
+  companyName?: string
 }
 
 // ============================================================
@@ -211,7 +212,7 @@ function money(amount: number): string {
 // Document
 // ============================================================
 
-export function EstimateDocument({ estimate, logoBase64 }: EstimateDocumentProps) {
+export function EstimateDocument({ estimate, logoBase64, companyName }: EstimateDocumentProps) {
   const laborTotal = estimate.laborHours * estimate.laborRate
   const isWarranty = estimate.billingType === 'warranty'
   const partsTotal = isWarranty
@@ -356,7 +357,7 @@ export function EstimateDocument({ estimate, logoBase64 }: EstimateDocumentProps
 
         {/* Footer */}
         <Text style={styles.footer} fixed>
-          Estimate — Imperial Dade Service Department
+          Estimate — {companyName ?? 'CallBoard'} Service Department
         </Text>
       </Page>
     </Document>

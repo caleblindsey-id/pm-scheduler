@@ -1,10 +1,16 @@
+// @react-pdf/renderer requires Node.js runtime (uses fs / canvas internals).
+// Match estimate-pdf and work-order-pdf which already declare this.
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server'
 import React from 'react'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { BillingDocument } from '@/lib/pdf/billing-template'
 import { createClient } from '@/lib/supabase/server'
+import { getSetting } from '@/lib/db/settings'
 import { getUser } from '@/lib/db/users'
 import { MANAGER_ROLES } from '@/lib/auth'
+import { MONTHS } from '@/lib/pm-schedule-options'
 
 // ============================================================
 // Types
@@ -268,31 +274,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- Generate signed URLs for ticket photos ---
+    // --- Generate signed URLs for ticket photos in batch ---
+    // 600s TTL bounds the URL lifetime to longer than even a slow batch render.
+    // createSignedUrls (plural) batches one call per ticket instead of one per
+    // photo — a batch of 20 tickets × 5 photos was previously 100 serial round
+    // trips. Per-ticket calls run in parallel via Promise.all.
     const photoUrlMap = new Map<string, string[]>()
-    for (const raw of rawTickets as RawTicket[]) {
-      const photos = raw.photos ?? []
-      const urls: string[] = []
-      for (const photo of photos) {
+    await Promise.all(
+      (rawTickets as RawTicket[]).map(async (raw) => {
+        const photos = raw.photos ?? []
+        const paths = photos.map((p) => p.storage_path).filter(Boolean)
+        if (paths.length === 0) {
+          photoUrlMap.set(raw.id, [])
+          return
+        }
         try {
           const { data } = await supabase.storage
             .from('ticket-photos')
-            .createSignedUrl(photo.storage_path, 120)
-          if (data?.signedUrl) urls.push(data.signedUrl)
+            .createSignedUrls(paths, 600)
+          const urls = (data ?? [])
+            .map((d) => d.signedUrl)
+            .filter((u): u is string => !!u)
+          photoUrlMap.set(raw.id, urls)
         } catch {
-          // Skip failed photos rather than failing the entire PDF
+          photoUrlMap.set(raw.id, [])
         }
-      }
-      photoUrlMap.set(raw.id, urls)
-    }
+      })
+    )
 
-    // --- Fetch labor rate from settings ---
-    const { data: laborRateSetting } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'labor_rate_per_hour')
-      .single()
-    const laborRate = laborRateSetting ? parseFloat(laborRateSetting.value) : 75
+    // --- Fetch labor rate + company name from settings ---
+    const [laborRateStr, companyName] = await Promise.all([
+      getSetting('labor_rate_per_hour'),
+      getSetting('company_name'),
+    ])
+    const laborRate = laborRateStr ? parseFloat(laborRateStr) : 75
 
     // --- Map raw tickets to BillingTicket[] ---
     const tickets: BillingTicket[] = (rawTickets as RawTicket[]).map((raw) => {
@@ -382,23 +397,11 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // --- Mark tickets as exported BEFORE rendering ---
-    // This ensures the database is consistent even if PDF rendering fails.
-    // Marking first prevents duplicate exports if the client retries.
-    const { error: updateError } = await supabase
-      .from('pm_tickets')
-      .update({ billing_exported: true, status: 'billed' })
-      .in('id', ticketIds as string[])
-
-    if (updateError) {
-      console.error('[billing/pdf] Failed to mark tickets as exported:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to mark tickets as exported. No PDF was generated.' },
-        { status: 500 }
-      )
-    }
-
-    // --- Render PDF ---
+    // --- Render PDF FIRST, then mark exported ---
+    // Previous order (mark-then-render) guaranteed that any render failure
+    // left tickets permanently in `billed` state with no PDF. Now: render
+    // first, and use a compare-and-swap UPDATE (.eq('billing_exported', false))
+    // so a duplicate retry safely no-ops when the first call already won.
     const exportedAt = new Date().toLocaleString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -407,27 +410,52 @@ export async function POST(request: NextRequest) {
       minute: '2-digit',
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const element = React.createElement(BillingDocument as any, {
+    const element = React.createElement(BillingDocument, {
       tickets,
       month: monthNum,
       year: yearNum,
       exportedAt,
-    })
+      companyName: companyName || 'CallBoard',
+    } as Parameters<typeof BillingDocument>[0])
 
     let buffer: Buffer
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      buffer = await renderToBuffer(element as any)
+      buffer = await renderToBuffer(element as React.ReactElement<any>)
     } catch (renderErr) {
       console.error('[billing/pdf] renderToBuffer error:', renderErr)
       return NextResponse.json({ error: 'Failed to render PDF' }, { status: 500 })
     }
 
+    // Mark tickets as exported only AFTER successful render. CAS on
+    // billing_exported=false: a concurrent retry would match zero rows and
+    // be skipped (the first request already won the race).
+    const { data: marked, error: updateError } = await supabase
+      .from('pm_tickets')
+      .update({ billing_exported: true, status: 'billed' })
+      .in('id', ticketIds as string[])
+      .eq('billing_exported', false)
+      .select('id')
+
+    if (updateError) {
+      console.error('[billing/pdf] Failed to mark tickets as exported:', updateError)
+      return NextResponse.json(
+        { error: 'PDF rendered but tickets could not be marked exported. Please refresh and try again.' },
+        { status: 500 }
+      )
+    }
+    if (!marked || marked.length === 0) {
+      return NextResponse.json(
+        { error: 'These tickets were already exported in another tab/session. Refresh to see the updated list.' },
+        { status: 409 }
+      )
+    }
+
     // --- Return PDF ---
-    const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(
-      new Date(yearNum, monthNum - 1)
-    )
+    // Use the shared MONTHS list so the filename never depends on the server's
+    // locale (Intl on a non-en-US server could emit accented characters that
+    // RFC 6266 quoted-string filenames don't allow).
+    const monthName = MONTHS.find((m) => m.value === monthNum)?.label ?? String(monthNum)
     const filename = `PM-Billing-${monthName}-${yearNum}.pdf`
 
     return new Response(new Uint8Array(buffer), {

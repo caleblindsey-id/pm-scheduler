@@ -138,8 +138,11 @@ export async function PATCH(
       const nextStatus = filtered.status as TicketStatus
 
       // Completion must go through POST /api/tickets/[id]/complete so billing
-      // math, signature, machine_hours, and date_code are all enforced.
-      if (nextStatus === 'completed') {
+      // math, signature, machine_hours, and date_code are all enforced — but
+      // `billed → completed` is a legitimate re-export reset path that
+      // preserves completion data and only flips billing_exported back. The
+      // 422 below applies to every other source status.
+      if (nextStatus === 'completed' && currentStatus !== 'billed') {
         return NextResponse.json(
           { error: 'Use POST /api/tickets/[id]/complete to mark a ticket complete' },
           { status: 422 }
@@ -250,11 +253,13 @@ export async function PATCH(
 
         if (currentStatus === 'billed') {
           updateData.billing_exported = false
-          // billed → completed keeps completion data; everything else clears it.
-          // (nextStatus is constrained by VALID_TRANSITIONS; 'completed' was
-          // rejected at line 130, so the remaining options are in_progress /
-          // assigned / unassigned, all of which clear.)
-          Object.assign(updateData, EMPTY_COMPLETION_FIELDS)
+          // `billed → completed` is the non-destructive re-export path: keep
+          // all completion data (signature, photos, billing_amount, etc.) so
+          // the manager can correct + re-export. Every other reset target
+          // wipes draft completion data.
+          if (nextStatus !== 'completed') {
+            Object.assign(updateData, EMPTY_COMPLETION_FIELDS)
+          }
         } else {
           // in_progress → assigned/unassigned: clear draft completion data
           Object.assign(updateData, EMPTY_COMPLETION_FIELDS)

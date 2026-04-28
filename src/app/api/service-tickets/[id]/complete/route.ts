@@ -119,6 +119,8 @@ export async function POST(
 
       finalBillingAmount = laborTotal + billablePartsTotal + diagnosticCharge
     }
+    // Round to cents to avoid stored vs. displayed drift.
+    finalBillingAmount = Math.round(finalBillingAmount * 100) / 100
 
     const updated = await completeServiceTicket(id, {
       completed_at,

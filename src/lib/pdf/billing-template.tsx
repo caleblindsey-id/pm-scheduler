@@ -55,6 +55,7 @@ interface BillingDocumentProps {
   month: number
   year: number
   exportedAt: string
+  companyName?: string
 }
 
 // ============================================================
@@ -510,7 +511,7 @@ function TicketSection({ ticket }: { ticket: BillingTicket }) {
 // Main document component
 // ============================================================
 
-export function BillingDocument({ tickets, month, year, exportedAt }: BillingDocumentProps) {
+export function BillingDocument({ tickets, month, year, exportedAt, companyName }: BillingDocumentProps) {
   const monthName = MONTHS[month - 1] ?? String(month)
 
   return (
@@ -519,7 +520,7 @@ export function BillingDocument({ tickets, month, year, exportedAt }: BillingDoc
         <Page key={ticket.id} size="LETTER" style={styles.page} wrap>
           {/* Header — on every page but logically per-ticket page */}
           <View style={styles.header} fixed>
-            <Text style={styles.companyName}>American Osment — Service Department</Text>
+            <Text style={styles.companyName}>{companyName ?? 'CallBoard'} — Service Department</Text>
             <Text style={styles.subtitle}>
               PM Billing Summary — {monthName} {year}
             </Text>

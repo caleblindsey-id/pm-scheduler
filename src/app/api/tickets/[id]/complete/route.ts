@@ -180,7 +180,10 @@ export async function POST(
       (sum, p) => sum + (Number(p.quantity) || 0) * (Number(p.unit_price) || 0),
       0
     )
-    const finalBillingAmount = flatRate + (finalAdditionalHours * laborRate) + additionalPartsTotal
+    // Round to cents to keep stored billing_amount consistent with
+    // .toFixed(2) display values everywhere (otherwise sub-cent IEEE 754
+    // drift can cause the PDF total and the export-list total to diverge).
+    const finalBillingAmount = Math.round((flatRate + (finalAdditionalHours * laborRate) + additionalPartsTotal) * 100) / 100
 
     // Snapshot the customer's pricing-visibility flag onto the ticket so future
     // PDF regenerations are stable even if the customer flag is later toggled.
