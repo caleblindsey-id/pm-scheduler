@@ -9,6 +9,7 @@ import TicketActions from './TicketActions'
 import PmPartsSection from './PmPartsSection'
 import PoNumberSection from './PoNumberSection'
 import DeletedBanner from './DeletedBanner'
+import ReviewBanner from './ReviewBanner'
 import ChangeLocationSection from './ChangeLocationSection'
 import ServiceHistory from '@/components/ServiceHistory'
 import EquipmentNotes from '@/components/EquipmentNotes'
@@ -89,6 +90,10 @@ export default async function TicketDetailPage({
           deletedByName={ticket.deleted_by?.name ?? null}
           canRestore={canRestore}
         />
+      )}
+
+      {!isDeleted && ticket.requires_review && !isTechnician(user?.role ?? null) && (
+        <ReviewBanner ticketId={ticket.id} reviewReason={ticket.review_reason} />
       )}
 
       {ticket.customers?.credit_hold && (

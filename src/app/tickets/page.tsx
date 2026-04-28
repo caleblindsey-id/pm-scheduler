@@ -7,7 +7,7 @@ import TicketBoard from './TicketBoard'
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; year?: string; tech?: string; status?: string; overdue?: string; skipRequested?: string; deleted?: string }>
+  searchParams: Promise<{ month?: string; year?: string; tech?: string; status?: string; overdue?: string; skipRequested?: string; needsReview?: string; deleted?: string }>
 }) {
   const params = await searchParams
   const now = new Date()
@@ -15,6 +15,7 @@ export default async function TicketsPage({
   const year = params.year ? parseInt(params.year) : now.getFullYear()
   const overdueMode = params.overdue === '1'
   const skipRequestedMode = params.skipRequested === '1'
+  const needsReviewMode = params.needsReview === '1'
   const deletedMode = params.deleted === '1'
 
   const user = await getCurrentUser()
@@ -42,6 +43,11 @@ export default async function TicketsPage({
     skipRequestedFilters!.technicianId = params.tech
   }
 
+  const needsReviewFilters: Parameters<typeof getTickets>[0] = { needsReviewOnly: true }
+  if (params.tech) {
+    needsReviewFilters!.technicianId = params.tech
+  }
+
   const deletedFilters: Parameters<typeof getTickets>[0] = { deletedOnly: true, month, year }
   if (isTech && user) {
     deletedFilters!.technicianId = user.id
@@ -62,8 +68,10 @@ export default async function TicketsPage({
           ? Promise.resolve([])
           : skipRequestedMode
             ? getTickets(skipRequestedFilters)
-            : getTickets(monthFilters),
-      deletedMode || skipRequestedMode ? Promise.resolve([]) : getTickets(overdueFilters),
+            : needsReviewMode
+              ? (isTech ? Promise.resolve([]) : getTickets(needsReviewFilters))
+              : getTickets(monthFilters),
+      deletedMode || skipRequestedMode || needsReviewMode ? Promise.resolve([]) : getTickets(overdueFilters),
       getUsers(true),
     ])
   } catch {
@@ -93,6 +101,7 @@ export default async function TicketsPage({
         initialStatus={params.status ?? ''}
         overdueMode={overdueMode}
         skipRequestedMode={skipRequestedMode}
+        needsReviewMode={needsReviewMode}
         deletedMode={deletedMode}
       />
     </div>

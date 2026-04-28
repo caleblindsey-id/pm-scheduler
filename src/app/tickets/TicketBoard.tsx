@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, ChevronDown, AlertOctagon, AlertTriangle, Trash2, RotateCcw } from 'lucide-react'
+import { ChevronRight, ChevronDown, AlertOctagon, AlertTriangle, Flag, Trash2, RotateCcw } from 'lucide-react'
 import { TicketWithJoins } from '@/lib/db/tickets'
 import { UserRow, TicketStatus, MANAGER_ROLES } from '@/types/database'
 import StatusBadge, { OverdueBadge } from '@/components/StatusBadge'
@@ -38,6 +38,7 @@ interface TicketBoardProps {
   initialStatus?: string
   overdueMode?: boolean
   skipRequestedMode?: boolean
+  needsReviewMode?: boolean
   deletedMode?: boolean
 }
 
@@ -95,6 +96,11 @@ function TicketList({
                   </span>
                   <StatusBadge status={ticket.status} />
                   {showOverdueBadges && <OverdueBadge days={days} />}
+                  {ticket.requires_review && (
+                    <span title="Flagged for Review" className="inline-flex items-center text-blue-600 dark:text-blue-400">
+                      <Flag className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                   {ticket.customers?.credit_hold && <CreditHoldBadge />}
                   {deletedMode && (
                     <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
@@ -199,7 +205,14 @@ function TicketList({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col items-start gap-1">
-                      <StatusBadge status={ticket.status} />
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge status={ticket.status} />
+                        {ticket.requires_review && (
+                          <span title="Flagged for Review" className="inline-flex items-center text-blue-600 dark:text-blue-400">
+                            <Flag className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </div>
                       {showOverdueBadges && <OverdueBadge days={days} />}
                     </div>
                   </td>
@@ -259,6 +272,7 @@ export default function TicketBoard({
   initialStatus = '',
   overdueMode = false,
   skipRequestedMode = false,
+  needsReviewMode = false,
   deletedMode = false,
 }: TicketBoardProps) {
   const isManager = !!userRole && MANAGER_ROLES.includes(userRole)
@@ -442,6 +456,23 @@ export default function TicketBoard({
         </div>
       )}
 
+      {needsReviewMode && (
+        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-800 dark:text-blue-300 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Flag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span>
+              Flagged for Review ({tickets.length}) — each ticket has an open prior-month PM. Open one to Approve & Keep or Skip.
+            </span>
+          </div>
+          <button
+            onClick={() => router.push('/tickets')}
+            className="text-xs font-medium underline hover:no-underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {deletedMode && (
         <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -459,8 +490,8 @@ export default function TicketBoard({
         </div>
       )}
 
-      {/* Filters — hidden when viewing overdue-only or skip-requested-only */}
-      {!overdueMode && !skipRequestedMode && (
+      {/* Filters — hidden when viewing overdue-only, skip-requested-only, or needs-review-only */}
+      {!overdueMode && !skipRequestedMode && !needsReviewMode && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:gap-3">
             <div className="w-full lg:w-auto">

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { AlertTriangle, CheckCircle, Flag } from 'lucide-react'
 import CreditHoldBadge from '@/components/CreditHoldBadge'
 
 interface CreditHoldCustomer {
@@ -17,13 +18,19 @@ interface PreviewResponse {
   creditHoldCustomers: CreditHoldCustomer[]
 }
 
+interface GenerateResult {
+  created: number
+  skippedCreditHold: number
+  flagged: number
+}
+
 interface GeneratePmModalProps {
   open: boolean
   month: number
   year: number
   monthLabel: string
   onClose: () => void
-  onGenerated: (result: { created: number; skippedCreditHold: number }) => void
+  onGenerated: (result: GenerateResult) => void
 }
 
 export default function GeneratePmModal({
@@ -34,10 +41,12 @@ export default function GeneratePmModal({
   onClose,
   onGenerated,
 }: GeneratePmModalProps) {
+  const router = useRouter()
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<GenerateResult | null>(null)
   // Credit-hold customers default to EXCLUDED (checkbox off = skip them).
   const [includeIds, setIncludeIds] = useState<Set<number>>(new Set())
 
@@ -46,6 +55,7 @@ export default function GeneratePmModal({
       setPreview(null)
       setIncludeIds(new Set())
       setError(null)
+      setResult(null)
       return
     }
     let cancelled = false
@@ -100,13 +110,23 @@ export default function GeneratePmModal({
         setError(data.error ?? 'Failed to generate tickets')
         return
       }
-      onGenerated({
+      setResult({
         created: data.created ?? 0,
         skippedCreditHold: data.skippedCreditHold ?? 0,
+        flagged: data.flagged ?? 0,
       })
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function handleDone() {
+    if (result) onGenerated(result)
+  }
+
+  function handleViewFlagged() {
+    if (result) onGenerated(result)
+    router.push('/tickets?needsReview=1')
   }
 
   function toggleInclude(id: number) {
@@ -130,6 +150,56 @@ export default function GeneratePmModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" aria-hidden="true" onClick={onClose} />
       <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        {result ? (
+          <>
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {monthLabel} {year} PMs Generated
+                </h3>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  Created {result.created} ticket{result.created === 1 ? '' : 's'}.
+                  {result.skippedCreditHold > 0 && (
+                    <> {result.skippedCreditHold} skipped due to credit hold.</>
+                  )}
+                </p>
+              </div>
+            </div>
+            {result.flagged > 0 && (
+              <div className="mt-4 rounded-lg border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4">
+                <div className="flex items-start gap-2">
+                  <Flag className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                  <div className="text-sm text-blue-800 dark:text-blue-300">
+                    <p className="font-semibold">{result.flagged} flagged for review</p>
+                    <p className="text-xs text-blue-700/80 dark:text-blue-400/80 mt-0.5">
+                      A prior-month PM is still open for these tickets&apos; equipment. Review and approve or skip.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              {result.flagged > 0 && (
+                <button
+                  type="button"
+                  onClick={handleViewFlagged}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Review flagged
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDone}
+                className="px-4 py-2 text-sm font-medium text-white bg-slate-800 dark:bg-slate-700 rounded-md hover:bg-slate-700 dark:hover:bg-slate-600"
+              >
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+        <>
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
@@ -241,6 +311,8 @@ export default function GeneratePmModal({
             {submitting ? 'Generating…' : `Generate ${netCreate}`}
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   )

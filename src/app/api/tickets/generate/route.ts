@@ -183,28 +183,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Auto-cancel unassigned prior-month orphans for schedules we're about to generate.
-    // This handles the case where a monthly PM sat untouched and the next month's ticket is now being created.
-    const scheduleIdsToCreate = ticketsToCreate.map(t => t.pm_schedule_id).filter(Boolean) as string[]
-    if (scheduleIdsToCreate.length > 0) {
-      const { data: candidateOrphans } = await supabase
+    // Flag tickets whose equipment still has a prior-period PM in an open state
+    // (unassigned/assigned/in_progress). The new ticket is created normally but
+    // requires_review=true so a manager can Approve & Keep or Skip it. Replaces
+    // the prior silent auto-skip-orphan-unassigned behavior.
+    let flaggedCount = 0
+    const equipmentIdsToCreate = ticketsToCreate
+      .map(t => t.equipment_id)
+      .filter((v): v is string => typeof v === 'string')
+
+    if (equipmentIdsToCreate.length > 0) {
+      const { data: priors } = await supabase
         .from('pm_tickets')
-        .select('id, month, year')
-        .in('pm_schedule_id', scheduleIdsToCreate)
-        .eq('status', 'unassigned')
+        .select('equipment_id, month, year, status')
+        .in('equipment_id', equipmentIdsToCreate)
+        .in('status', ['unassigned', 'assigned', 'in_progress'])
         .is('deleted_at', null)
+        .or(`year.lt.${year},and(year.eq.${year},month.lt.${month})`)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false })
 
-      const orphanIds = (candidateOrphans ?? [])
-        .filter(t => t.month !== month || t.year !== year)
-        .map(t => t.id)
+      const priorByEquipment = new Map<string, { month: number; year: number; status: string }>()
+      for (const p of priors ?? []) {
+        if (!p.equipment_id) continue
+        // Sorted desc by year/month, so first hit per equipment is the most recent.
+        if (!priorByEquipment.has(p.equipment_id)) {
+          priorByEquipment.set(p.equipment_id, { month: p.month, year: p.year, status: p.status })
+        }
+      }
 
-      if (orphanIds.length > 0) {
-        const monthName = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' })
-        await supabase
-          .from('pm_tickets')
-          .update({ status: 'skipped', skip_reason: `Superseded by ${monthName} ${year} generation` })
-          .in('id', orphanIds)
-        skipped += orphanIds.length
+      for (const t of ticketsToCreate) {
+        if (!t.equipment_id) continue
+        const prior = priorByEquipment.get(t.equipment_id)
+        if (prior) {
+          t.requires_review = true
+          t.review_reason = `Prior PM ${prior.month}/${prior.year} still ${prior.status}`
+          flaggedCount++
+        }
       }
     }
 
@@ -224,6 +239,7 @@ export async function POST(request: NextRequest) {
       created: created.length,
       skipped,
       skippedCreditHold,
+      flagged: flaggedCount,
       tickets: created,
     })
   } catch (err) {

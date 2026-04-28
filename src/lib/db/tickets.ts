@@ -31,6 +31,7 @@ export async function getTickets(filters?: {
   status?: TicketStatus
   customerId?: number
   overdueOnly?: boolean
+  needsReviewOnly?: boolean
   now?: Date
   includeDeleted?: boolean
   deletedOnly?: boolean
@@ -54,7 +55,9 @@ export async function getTickets(filters?: {
     query = query.is('deleted_at', null)
   }
 
-  if (filters?.overdueOnly) {
+  if (filters?.needsReviewOnly) {
+    query = query.eq('requires_review', true)
+  } else if (filters?.overdueOnly) {
     const now = filters.now ?? new Date()
     const currentMonth = now.getMonth() + 1
     const currentYear = now.getFullYear()
@@ -152,6 +155,26 @@ export async function getSkipRequestedCount(filters?: {
     .select('id', { count: 'exact', head: true })
     .is('deleted_at', null)
     .eq('status', 'skip_requested')
+
+  if (filters?.technicianId) {
+    query = query.eq('assigned_technician_id', filters.technicianId)
+  }
+
+  const { count, error } = await query
+  if (error) throw error
+  return count ?? 0
+}
+
+export async function getNeedsReviewCount(filters?: {
+  technicianId?: string
+}): Promise<number> {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('pm_tickets')
+    .select('id', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .eq('requires_review', true)
 
   if (filters?.technicianId) {
     query = query.eq('assigned_technician_id', filters.technicianId)
