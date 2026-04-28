@@ -7,6 +7,7 @@ import StatusBadge from '@/components/StatusBadge'
 import CreditHoldBadge from '@/components/CreditHoldBadge'
 import TicketActions from './TicketActions'
 import PmPartsSection from './PmPartsSection'
+import PoNumberSection from './PoNumberSection'
 import DeletedBanner from './DeletedBanner'
 import ServiceHistory from '@/components/ServiceHistory'
 import EquipmentNotes from '@/components/EquipmentNotes'
@@ -252,11 +253,15 @@ export default async function TicketDetailPage({
       {/* Parts tracking + Actions are hidden when the ticket is deleted (read-only) */}
       {!isDeleted && (
         <>
+          <PoNumberSection
+            ticketId={ticket.id}
+            initialPoNumber={ticket.po_number ?? null}
+          />
+
           <PmPartsSection
             ticketId={ticket.id}
             initialPartsRequested={ticket.parts_requested ?? []}
             initialSynergyOrderNumber={ticket.synergy_order_number ?? null}
-            initialPoNumber={ticket.po_number ?? null}
             isTech={isTechnician(user?.role ?? null)}
             canReset={RESET_ROLES.includes(user?.role ?? ('' as never))}
             status={ticket.status}

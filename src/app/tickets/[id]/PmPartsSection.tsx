@@ -11,7 +11,6 @@ interface PmPartsSectionProps {
   ticketId: string
   initialPartsRequested: PartRequest[]
   initialSynergyOrderNumber: string | null
-  initialPoNumber: string | null
   isTech: boolean
   canReset: boolean
   status: TicketStatus
@@ -29,7 +28,6 @@ export default function PmPartsSection({
   ticketId,
   initialPartsRequested,
   initialSynergyOrderNumber,
-  initialPoNumber,
   isTech,
   canReset,
   status,
@@ -38,8 +36,6 @@ export default function PmPartsSection({
   const [parts, setParts] = useState<PartRequest[]>(initialPartsRequested)
   const [synergyOrderNumber, setSynergyOrderNumber] = useState(initialSynergyOrderNumber ?? '')
   const [synergyOrderSaved, setSynergyOrderSaved] = useState(!!initialSynergyOrderNumber)
-  const [poNumber, setPoNumber] = useState(initialPoNumber ?? '')
-  const [poNumberSaved, setPoNumberSaved] = useState(!!initialPoNumber)
   const [draftParts, setDraftParts] = useState<PartEntry[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -219,20 +215,6 @@ export default function PmPartsSection({
     }
   }
 
-  async function handleSavePoNumber() {
-    setSaving(true)
-    setError(null)
-    try {
-      await patchTicket({ po_number: poNumber.trim() || null })
-      setPoNumberSaved(!!poNumber.trim())
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error saving PO number')
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
@@ -386,31 +368,6 @@ export default function PmPartsSection({
             />
           </div>
         )}
-
-        {/* Customer PO # — visible to all, capture before work starts */}
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wide">Customer PO #</p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={poNumber}
-                onChange={e => { setPoNumber(e.target.value); setPoNumberSaved(false) }}
-                placeholder="Enter customer PO if known"
-                className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={handleSavePoNumber}
-                disabled={saving}
-                className="px-3 py-1.5 text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50 whitespace-nowrap min-h-[44px] sm:min-h-0"
-              >
-                {poNumberSaved ? 'Saved ✓' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* Synergy Order # — office staff only */}
         {!isTech && (
