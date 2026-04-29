@@ -144,9 +144,11 @@ export async function getCreditHoldCount(): Promise<number> {
   if (pmRes.error) throw pmRes.error
   if (svcRes.error) throw svcRes.error
 
-  const activeCustomerIds = new Set<string>()
-  for (const r of (pmRes.data ?? []) as { customer_id: string }[]) activeCustomerIds.add(r.customer_id)
-  for (const r of (svcRes.data ?? []) as { customer_id: string }[]) activeCustomerIds.add(r.customer_id)
+  const activeCustomerIds = new Set<number>()
+  for (const r of (pmRes.data ?? []) as { customer_id: number | null }[]) {
+    if (r.customer_id != null) activeCustomerIds.add(r.customer_id)
+  }
+  for (const r of (svcRes.data ?? []) as { customer_id: number }[]) activeCustomerIds.add(r.customer_id)
 
   if (activeCustomerIds.size === 0) return 0
 
