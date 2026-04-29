@@ -322,61 +322,17 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     setLoading(true)
     setError(null)
     try {
-      // Generate approval token
-      const tokenRes = await fetch(`/api/service-tickets/${ticket.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ generate_approval_token: true }),
+      const res = await fetch(`/api/service-tickets/${ticket.id}/send-estimate`, {
+        method: 'POST',
       })
-      if (!tokenRes.ok) {
-        const errData = await tokenRes.json().catch(() => ({}))
-        throw new Error(errData.error || 'Failed to generate approval token')
-      }
-      const tokenData = await tokenRes.json()
-      const approvalUrl = `${getPublicAppUrl()}/approve/${tokenData.approval_token}`
-
-      // Generate estimate PDF
-      const res = await fetch(`/api/service-tickets/${ticket.id}/estimate-pdf`, { method: 'POST' })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to generate estimate PDF')
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Failed to send estimate email')
       }
-      const blob = await res.blob()
-      const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ?? 'estimate.pdf'
-
-      // Build estimate summary for email body
-      const estimateSummary = ticket.estimate_amount != null
-        ? `\nEstimate Total: $${ticket.estimate_amount.toFixed(2)}\n`
-        : ''
-
-      // Open mailto with approval link + estimate context
-      const woLabel = ticket.work_order_number ? `WO-${ticket.work_order_number}` : 'Service'
-      const customerName = ticket.customers?.name ?? 'Customer'
-      const subject = encodeURIComponent(`Service Estimate — ${woLabel} — ${customerName}`)
-      const body = encodeURIComponent(
-        `Please find attached the service estimate for your review.\n${estimateSummary}\n` +
-        `To approve or decline this estimate online, visit:\n${approvalUrl}\n\n` +
-        `This link is valid for 7 days.\n\n` +
-        `This estimate is subject to change. All prices are subject to applicable taxes.\n\n` +
-        `If you have any questions, please don't hesitate to reach out.\n\n` +
-        `Thank you,\nImperial Dade Service Department`
-      )
-      window.open(`mailto:${ticket.contact_email}?subject=${subject}&body=${body}`, '_self')
-
-      // Also download the PDF so they can attach it
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      setSuccessMsg('Email draft opened — attach the downloaded PDF to send.')
+      setSuccessMsg(`Estimate emailed to ${ticket.contact_email}.`)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate estimate')
+      setError(err instanceof Error ? err.message : 'Failed to send estimate email')
     } finally {
       setLoading(false)
     }

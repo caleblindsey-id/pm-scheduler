@@ -84,6 +84,8 @@ export type ServiceTicketRow = {
   synergy_validation_status: 'valid' | 'invalid' | 'pending' | null
   approval_token: string | null
   approval_token_expires_at: string | null
+  estimate_emailed_at: string | null
+  estimate_email_message_id: string | null
   estimate_signature: string | null
   estimate_signature_name: string | null
   decline_reason: string | null
