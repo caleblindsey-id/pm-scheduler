@@ -89,6 +89,7 @@ export type ServiceTicketRow = {
   estimate_signature: string | null
   estimate_signature_name: string | null
   decline_reason: string | null
+  manual_decision_note: string | null
   created_at: string
   updated_at: string
 }

@@ -108,6 +108,10 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
   )
   const [diagnosisNotes, setDiagnosisNotes] = useState(ticket.diagnosis_notes ?? '')
 
+  // Manual approve/decline note capture
+  const [manualDecisionMode, setManualDecisionMode] = useState<null | 'approve' | 'decline'>(null)
+  const [manualDecisionNote, setManualDecisionNote] = useState('')
+
   // Parts requested
   const [partsRequested, setPartsRequested] = useState<PartRequest[]>(ticket.parts_requested ?? [])
   const [showAddPart, setShowAddPart] = useState(false)
@@ -272,20 +276,27 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
     })
   }
 
-  async function handleApproveEstimate() {
+  async function handleApproveEstimate(note: string) {
     await apiAction(async () => {
       await patchTicket({
         estimate_approved: true,
         estimate_approved_at: new Date().toISOString(),
         status: 'approved',
+        manual_decision_note: note,
       })
+      setManualDecisionMode(null)
+      setManualDecisionNote('')
     })
   }
 
-  async function handleDeclineEstimate() {
-    if (!confirm('Decline this estimate? The ticket will move to Declined status.')) return
+  async function handleDeclineEstimate(note: string) {
     await apiAction(async () => {
-      await patchTicket({ status: 'declined' })
+      await patchTicket({
+        status: 'declined',
+        manual_decision_note: note,
+      })
+      setManualDecisionMode(null)
+      setManualDecisionNote('')
     })
   }
 
@@ -949,6 +960,23 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                 </div>
               )}
 
+              {/* Manual decision note — staff override approve/decline path */}
+              {ticket.manual_decision_note && (ticket.status === 'approved' || ticket.status === 'declined') && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Manual Decision Note
+                    {(ticket.estimate_approved_at || ticket.updated_at) && (
+                      <span className="ml-2 normal-case font-normal text-gray-400 dark:text-gray-500">
+                        {new Date(ticket.estimate_approved_at ?? ticket.updated_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-sm italic text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                    {ticket.manual_decision_note}
+                  </p>
+                </div>
+              )}
+
               {/* Download / Email estimate */}
               <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                 <button
@@ -1018,23 +1046,87 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
             </div>
           )}
 
-          {/* Estimate action buttons for staff (approve/decline) */}
+          {/* Estimate action buttons for staff (approve/decline).
+              Both paths require a note explaining who told us — shown via
+              an inline-expand textarea before the action commits. */}
           {ticket.status === 'estimated' && isStaff && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              <button
-                onClick={handleApproveEstimate}
-                disabled={loading}
-                className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors min-h-[44px]"
-              >
-                {loading ? 'Approving...' : 'Approve Estimate'}
-              </button>
-              <button
-                onClick={handleDeclineEstimate}
-                disabled={loading}
-                className="px-4 py-3 sm:py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors min-h-[44px]"
-              >
-                Decline
-              </button>
+            <div className="mt-3">
+              {manualDecisionMode === null ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      setManualDecisionMode('approve')
+                      setManualDecisionNote('')
+                    }}
+                    disabled={loading}
+                    className="px-4 py-3 sm:py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors min-h-[44px]"
+                  >
+                    Approve Estimate
+                  </button>
+                  <button
+                    onClick={() => {
+                      setManualDecisionMode('decline')
+                      setManualDecisionNote('')
+                    }}
+                    disabled={loading}
+                    className="px-4 py-3 sm:py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors min-h-[44px]"
+                  >
+                    Decline
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-w-lg">
+                  <label htmlFor="manual-decision-note" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {manualDecisionMode === 'approve'
+                      ? 'Who told us to approve? (required)'
+                      : 'Why are we declining? (required for the record)'}
+                  </label>
+                  <textarea
+                    id="manual-decision-note"
+                    autoFocus
+                    value={manualDecisionNote}
+                    onChange={(e) => setManualDecisionNote(e.target.value)}
+                    rows={3}
+                    maxLength={2000}
+                    placeholder={manualDecisionMode === 'approve'
+                      ? 'e.g. Spoke with John Smith on phone 4/29 — approved verbally'
+                      : 'e.g. Customer chose another vendor — confirmed by email 4/29'}
+                    className="w-full rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        const note = manualDecisionNote.trim()
+                        if (manualDecisionMode === 'approve') {
+                          handleApproveEstimate(note)
+                        } else {
+                          handleDeclineEstimate(note)
+                        }
+                      }}
+                      disabled={loading || manualDecisionNote.trim().length < 2}
+                      className={`px-4 py-3 sm:py-2 text-sm font-medium text-white rounded-md disabled:opacity-50 transition-colors min-h-[44px] ${
+                        manualDecisionMode === 'approve'
+                          ? 'bg-green-600 hover:bg-green-700'
+                          : 'bg-red-600 hover:bg-red-700'
+                      }`}
+                    >
+                      {loading
+                        ? (manualDecisionMode === 'approve' ? 'Approving...' : 'Declining...')
+                        : (manualDecisionMode === 'approve' ? 'Confirm Approve' : 'Confirm Decline')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setManualDecisionMode(null)
+                        setManualDecisionNote('')
+                      }}
+                      disabled={loading}
+                      className="px-4 py-3 sm:py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 transition-colors min-h-[44px]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -45,6 +45,7 @@ const STAFF_ALLOWED_FIELDS = [
   'awaiting_pickup',
   'picked_up_at',
   'generate_approval_token',
+  'manual_decision_note',
 ] as const
 
 // Fields techs can update
@@ -196,6 +197,27 @@ export async function PATCH(
       // Techs can't complete via PATCH (must use /complete endpoint)
       if (isTechnician(user.role) && nextStatus === 'completed') {
         return NextResponse.json({ error: 'Use the complete endpoint to submit ticket completion' }, { status: 403 })
+      }
+
+      // Manual approve/decline requires a note for the record. The customer-
+      // facing /api/approve/[token] route is the only path that's allowed to
+      // transition an estimated ticket without a note. Auto-approval (under
+      // $100) hits this validator with nextStatus='estimated' and rewrites
+      // the status afterward, so the guard correctly skips it.
+      if (
+        currentStatus === 'estimated' &&
+        (nextStatus === 'approved' || nextStatus === 'declined')
+      ) {
+        const note = typeof filtered.manual_decision_note === 'string'
+          ? filtered.manual_decision_note.trim()
+          : ''
+        if (note.length < 2) {
+          return NextResponse.json(
+            { error: 'A manual decision note is required when staff approves or declines an estimate.' },
+            { status: 400 }
+          )
+        }
+        filtered.manual_decision_note = note
       }
 
       // --- Hard block: completed → billed requires synergy_order_number ---
