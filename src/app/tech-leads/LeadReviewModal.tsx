@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import type { TechLeadWithJoins } from '@/lib/db/tech-leads'
+import type { TicketPhoto } from '@/types/database'
 import { tierLabel, EQUIPMENT_SALE_TIERS } from '@/lib/tech-leads/bonus-tiers'
+import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   lead: TechLeadWithJoins | null
@@ -16,6 +18,7 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [photoUrls, setPhotoUrls] = useState<string[]>([])
 
   useEffect(() => {
     if (lead) {
@@ -23,6 +26,31 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
       setReason('')
       setError(null)
       setSubmitting(false)
+    }
+  }, [lead])
+
+  // Fetch signed URLs (1h) for any attached machine photos.
+  useEffect(() => {
+    const photos = (lead?.photos as TicketPhoto[] | undefined) ?? []
+    if (!lead || photos.length === 0) {
+      setPhotoUrls([])
+      return
+    }
+    let cancelled = false
+    const supabase = createClient()
+    Promise.all(
+      photos.map(async (p) => {
+        const { data } = await supabase.storage
+          .from('ticket-photos')
+          .createSignedUrl(p.storage_path, 3600)
+        return data?.signedUrl ?? null
+      })
+    ).then((urls) => {
+      if (cancelled) return
+      setPhotoUrls(urls.filter((u): u is string => !!u))
+    })
+    return () => {
+      cancelled = true
     }
   }, [lead])
 
@@ -114,6 +142,33 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
         <div className="px-5 py-4 space-y-3 text-sm">
           <Field label="Tech">{lead.submitter?.name ?? '—'}</Field>
           <Field label="Customer">{customerLabel}</Field>
+          {(lead.contact_name || lead.contact_email || lead.contact_phone) && (
+            <Field label="Lead contact">
+              <div className="space-y-0.5">
+                {lead.contact_name && <div>{lead.contact_name}</div>}
+                {lead.contact_email && (
+                  <div>
+                    <a
+                      href={`mailto:${lead.contact_email}`}
+                      className="text-slate-700 dark:text-slate-300 hover:underline"
+                    >
+                      {lead.contact_email}
+                    </a>
+                  </div>
+                )}
+                {lead.contact_phone && (
+                  <div>
+                    <a
+                      href={`tel:${lead.contact_phone.replace(/[^\d+]/g, '')}`}
+                      className="text-slate-700 dark:text-slate-300 hover:underline"
+                    >
+                      {lead.contact_phone}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </Field>
+          )}
           {isEquipmentSale ? (
             <>
               <Field label="Proposed equipment tier">
@@ -143,6 +198,28 @@ export default function LeadReviewModal({ lead, onClose, onDone }: Props) {
           {lead.notes && (
             <Field label="Notes">
               <p className="whitespace-pre-wrap break-words">{lead.notes}</p>
+            </Field>
+          )}
+          {photoUrls.length > 0 && (
+            <Field label="Machine photos">
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                {photoUrls.map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block aspect-square rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`Machine photo ${i + 1}`}
+                      className="w-full h-full object-cover hover:opacity-90"
+                    />
+                  </a>
+                ))}
+              </div>
             </Field>
           )}
         </div>

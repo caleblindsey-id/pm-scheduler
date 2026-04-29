@@ -348,6 +348,15 @@ export type TechLeadRow = {
   paid_at: string | null
   paid_by: string | null
   payout_period: string | null
+  // Lead contact captured at submission (migration 052). Optional fields; the
+  // submit form requires name + at least one of email/phone for new entries
+  // but legacy rows may have them all NULL.
+  contact_name: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  // Machine photos uploaded at submission. Stored under
+  // `leads/{tech_lead_id}/{uuid}.jpg` in the shared `ticket-photos` bucket.
+  photos: TicketPhoto[]
   created_at: string
   updated_at: string
 }
@@ -460,7 +469,8 @@ export type TechLeadInsert = Pick<TechLeadRow, 'submitted_by' | 'equipment_descr
   Partial<Pick<TechLeadRow,
     'lead_type' | 'submitted_at' | 'customer_id' | 'customer_name_text' |
     'proposed_pm_frequency' | 'proposed_equipment_tier' | 'expires_at' |
-    'notes' | 'status'
+    'notes' | 'status' |
+    'contact_name' | 'contact_email' | 'contact_phone' | 'photos'
   >>
 
 export type EquipmentSaleLeadCandidateInsert = Pick<EquipmentSaleLeadCandidateRow,

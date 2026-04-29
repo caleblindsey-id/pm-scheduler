@@ -24,6 +24,11 @@ const VALID_TIERS: EquipmentSaleTier[] = Object.keys(EQUIPMENT_SALE_TIERS) as Eq
 const EQUIPMENT_DESCRIPTION_MAX = 500
 const NOTES_MAX = 1000
 const CUSTOMER_NAME_MAX = 200
+const CONTACT_NAME_MAX = 200
+const CONTACT_EMAIL_MAX = 320
+const CONTACT_PHONE_MAX = 40
+
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type CreateBody = {
   lead_type?: TechLeadType
@@ -36,6 +41,9 @@ type CreateBody = {
   proposed_equipment_tier?: EquipmentSaleTier | null
   // Shared
   notes?: string | null
+  contact_name?: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
 }
 
 // POST /api/tech-leads — tech submits a lead. Office users (super_admin/manager)
@@ -68,12 +76,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const contactName = body.contact_name?.trim() ?? ''
+    const contactEmail = body.contact_email?.trim() ?? ''
+    const contactPhone = body.contact_phone?.trim() ?? ''
+    if (!contactName) {
+      return NextResponse.json({ error: 'Lead contact name is required.' }, { status: 400 })
+    }
+    if (!contactEmail && !contactPhone) {
+      return NextResponse.json(
+        { error: 'Provide a contact email or phone — at least one.' },
+        { status: 400 }
+      )
+    }
+    if (contactEmail && !EMAIL_SHAPE.test(contactEmail)) {
+      return NextResponse.json({ error: 'Contact email looks invalid.' }, { status: 400 })
+    }
+    if (contactPhone) {
+      const digitCount = contactPhone.replace(/\D+/g, '').length
+      if (digitCount < 7) {
+        return NextResponse.json({ error: 'Contact phone looks invalid.' }, { status: 400 })
+      }
+    }
+
     const insert: TechLeadInsert = {
       submitted_by: user.id,
       lead_type: leadType,
       customer_id: hasExisting ? body.customer_id! : null,
       customer_name_text: hasFreeText ? body.customer_name_text!.trim().slice(0, CUSTOMER_NAME_MAX) : null,
       notes: body.notes?.trim().slice(0, NOTES_MAX) || null,
+      contact_name: contactName.slice(0, CONTACT_NAME_MAX),
+      contact_email: contactEmail ? contactEmail.slice(0, CONTACT_EMAIL_MAX) : null,
+      contact_phone: contactPhone ? contactPhone.slice(0, CONTACT_PHONE_MAX) : null,
       equipment_description: '', // set per branch below
     }
 

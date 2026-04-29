@@ -3,9 +3,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X } from 'lucide-react'
+import { X, Camera } from 'lucide-react'
 import type { EquipmentSaleTier, TechLeadFrequency, TechLeadType } from '@/types/database'
 import { EQUIPMENT_SALE_TIER_LIST } from '@/lib/tech-leads/bonus-tiers'
+import { compressImage } from '@/lib/image-utils'
+
+const MAX_PHOTOS = 12
+
+type PendingPhoto = {
+  id: string
+  blob: Blob
+  previewUrl: string
+}
 
 interface CustomerOption {
   id: number
@@ -50,9 +59,26 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
   // Equipment-sale lead fields
   const [equipmentTier, setEquipmentTier] = useState<EquipmentSaleTier | ''>('')
 
+  // Lead contact (new in 052) — name required, plus at least one of email/phone.
+  const [contactName, setContactName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+
+  // Machine photos — captured/compressed up-front, uploaded after the lead row
+  // exists (we need the lead id to namespace the storage path).
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([])
+  const pendingPhotosRef = useRef<PendingPhoto[]>([])
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    pendingPhotosRef.current = pendingPhotos
+  }, [pendingPhotos])
+
   // Shared
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [warning, setWarning] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Reset when the modal opens
@@ -68,9 +94,26 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
     setEquipmentDescription('')
     setFrequency('')
     setEquipmentTier('')
+    setContactName('')
+    setContactEmail('')
+    setContactPhone('')
+    setPendingPhotos((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+      return []
+    })
+    setPhotoError(null)
     setNotes('')
+    setWarning(null)
     setError(null)
   }, [open])
+
+  // Revoke any outstanding object URLs on unmount. Read from the ref so we
+  // don't capture an empty initial array.
+  useEffect(() => {
+    return () => {
+      pendingPhotosRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+    }
+  }, [])
 
   useEffect(() => {
     if (!customerSearch.trim() || newCustomerMode) {
@@ -112,9 +155,51 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
     setComboOpen(false)
   }
 
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setPhotoError(null)
+    const room = MAX_PHOTOS - pendingPhotos.length
+    const toProcess = Array.from(files).slice(0, room)
+    if (files.length > room) {
+      setPhotoError(`Only ${MAX_PHOTOS} photos per lead. Extra files were ignored.`)
+    }
+    try {
+      const compressed = await Promise.all(
+        toProcess.map(async (file) => {
+          const blob = await compressImage(file)
+          return {
+            id: crypto.randomUUID(),
+            blob,
+            previewUrl: URL.createObjectURL(blob),
+          } as PendingPhoto
+        })
+      )
+      setPendingPhotos((prev) => [...prev, ...compressed])
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Could not process photo.')
+    } finally {
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
+
+  function removePendingPhoto(id: string) {
+    setPendingPhotos((prev) => {
+      const next = prev.filter((p) => {
+        if (p.id === id) {
+          URL.revokeObjectURL(p.previewUrl)
+          return false
+        }
+        return true
+      })
+      return next
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setWarning(null)
 
     if (!newCustomerMode && !customerId) {
       setError('Pick an existing customer or tap "+ New customer".')
@@ -122,6 +207,15 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
     }
     if (newCustomerMode && !newCustomerName.trim()) {
       setError('Enter the new customer name.')
+      return
+    }
+
+    if (!contactName.trim()) {
+      setError('Lead contact name is required.')
+      return
+    }
+    if (!contactEmail.trim() && !contactPhone.trim()) {
+      setError('Provide a contact email or phone — at least one.')
       return
     }
 
@@ -138,6 +232,9 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
         equipment_description: equipmentDescription.trim(),
         proposed_pm_frequency: frequency || null,
         notes: notes.trim() || null,
+        contact_name: contactName.trim(),
+        contact_email: contactEmail.trim() || null,
+        contact_phone: contactPhone.trim() || null,
       }
     } else {
       if (!equipmentTier) {
@@ -150,11 +247,15 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
         customer_name_text: newCustomerMode ? newCustomerName.trim() : null,
         proposed_equipment_tier: equipmentTier,
         notes: notes.trim() || null,
+        contact_name: contactName.trim(),
+        contact_email: contactEmail.trim() || null,
+        contact_phone: contactPhone.trim() || null,
       }
     }
 
     setSubmitting(true)
     try {
+      // 1. Create the lead row
       const res = await fetch('/api/tech-leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,6 +264,53 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
       const respBody = await res.json().catch(() => ({}))
       if (!res.ok) {
         throw new Error(respBody?.error || 'Failed to submit lead.')
+      }
+      const leadId: string | undefined = respBody?.id
+      let photoWarning: string | null = null
+
+      // 2. Upload photos in parallel and 3. attach to lead
+      if (leadId && pendingPhotos.length > 0) {
+        try {
+          const supabase = createClient()
+          const settled = await Promise.allSettled(
+            pendingPhotos.map(async (p) => {
+              const path = `leads/${leadId}/${p.id}.jpg`
+              const { error: upErr } = await supabase.storage
+                .from('ticket-photos')
+                .upload(path, p.blob, { contentType: 'image/jpeg' })
+              if (upErr) throw upErr
+              return path
+            })
+          )
+          const uploadedPaths = settled
+            .filter((s): s is PromiseFulfilledResult<string> => s.status === 'fulfilled')
+            .map((s) => s.value)
+          const failures = settled.filter((s) => s.status === 'rejected').length
+
+          if (uploadedPaths.length > 0) {
+            const patchRes = await fetch(`/api/tech-leads/${leadId}/photos`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                photos: uploadedPaths.map((storage_path) => ({ storage_path })),
+              }),
+            })
+            if (!patchRes.ok) {
+              photoWarning = 'Lead submitted, but photos could not be saved to the lead.'
+            }
+          }
+          if (failures > 0 && !photoWarning) {
+            photoWarning = `Lead submitted, but ${failures} photo${failures > 1 ? 's' : ''} failed to upload.`
+          }
+        } catch {
+          photoWarning = 'Lead submitted, but photos could not be uploaded.'
+        }
+      }
+
+      if (photoWarning) {
+        setWarning(photoWarning)
+        setSubmitting(false)
+        return
       }
       onClose()
       router.refresh()
@@ -193,6 +341,9 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {warning && (
+            <p className="text-sm text-amber-700 dark:text-amber-400">{warning}</p>
+          )}
 
           {/* Lead type toggle */}
           <div>
@@ -307,6 +458,57 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
             )}
           </div>
 
+          {/* Lead contact */}
+          <div className="space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-white">Lead contact</h4>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                Email or phone required so we can follow up.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Contact name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={contactName}
+                onChange={e => setContactName(e.target.value)}
+                placeholder="Who to ask for on site"
+                autoComplete="name"
+                className="w-full min-h-[44px] rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                inputMode="email"
+                value={contactEmail}
+                onChange={e => setContactEmail(e.target.value)}
+                placeholder="name@company.com"
+                autoComplete="email"
+                className="w-full min-h-[44px] rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phone
+              </label>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={contactPhone}
+                onChange={e => setContactPhone(e.target.value)}
+                placeholder="(205) 555-0100"
+                autoComplete="tel"
+                className="w-full min-h-[44px] rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+              />
+            </div>
+          </div>
+
           {leadType === 'pm' ? (
             <>
               {/* Equipment description (PM only) */}
@@ -374,6 +576,59 @@ export default function SubmitLeadModal({ open, onClose }: SubmitLeadModalProps)
               </div>
             </>
           )}
+
+          {/* Machine photos */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Machine photos
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              Snap the machine, data plate, or anything that helps the office identify it.
+            </p>
+            {pendingPhotos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                {pendingPhotos.map(p => (
+                  <div
+                    key={p.id}
+                    className="relative aspect-square rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.previewUrl}
+                      alt="Machine"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePendingPhoto(p.id)}
+                      aria-label="Remove photo"
+                      className="absolute top-1 right-1 flex items-center justify-center bg-black/60 hover:bg-black/75 text-white rounded-full"
+                      style={{ minHeight: 32, minWidth: 32 }}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {pendingPhotos.length < MAX_PHOTOS && (
+              <label className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600">
+                <Camera className="h-4 w-4" />
+                {pendingPhotos.length === 0 ? 'Add photos' : 'Add more'}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handlePhotoSelect}
+                />
+              </label>
+            )}
+            {photoError && (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">{photoError}</p>
+            )}
+          </div>
 
           {/* Notes */}
           <div>
