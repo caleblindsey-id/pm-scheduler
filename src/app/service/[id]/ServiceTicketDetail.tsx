@@ -1116,7 +1116,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
           {/* Submit estimate form — techs or staff when ticket is open */}
           {ticket.status === 'open' && (
-            <>
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               {!showEstimateForm ? (
                 <button
                   onClick={() => setShowEstimateForm(true)}
@@ -1217,7 +1217,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                   </div>
                 </form>
               )}
-            </>
+            </div>
           )}
         </Card>
       )}
