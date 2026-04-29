@@ -5,7 +5,6 @@ import type { ServiceTicketStatus } from '@/types/service-tickets'
 // --- Types --------------------------------------------------------------
 
 export type OpenWorkCounts = { pm: number; service: number; total: number }
-export type MoneyAtRiskCounts = { creditHold: number; overdue: number; total: number }
 export type PendingApproval = { count: number; amount: number }
 export type MtdRevenue = { pm: number; service: number; total: number }
 export type EstimatesPipeline = {
@@ -67,37 +66,6 @@ export async function getOpenWorkCounts(technicianId?: string): Promise<OpenWork
   return { pm, service, total: pm + service }
 }
 
-// --- KPI: Money at Risk -------------------------------------------------
-// Count of customers on credit hold + count of overdue PMs. Both signal
-// revenue exposure even when we don't have AR balance loaded.
-
-export async function getMoneyAtRiskCounts(): Promise<MoneyAtRiskCounts> {
-  const supabase = await createClient()
-
-  const now = new Date()
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
-
-  const [creditHoldRes, overdueRes] = await Promise.all([
-    supabase
-      .from('customers')
-      .select('id', { count: 'exact', head: true })
-      .eq('credit_hold', true),
-    supabase
-      .from('pm_tickets')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .lt('scheduled_date', monthStart)
-      .not('status', 'in', '("completed","billed","skipped")'),
-  ])
-
-  if (creditHoldRes.error) throw creditHoldRes.error
-  if (overdueRes.error) throw overdueRes.error
-
-  const creditHold = creditHoldRes.count ?? 0
-  const overdue = overdueRes.count ?? 0
-  return { creditHold, overdue, total: creditHold + overdue }
-}
-
 // --- KPI: Pending Approval ($ + count) ----------------------------------
 // Service tickets in 'estimated' status — sent to customer, awaiting signature.
 
@@ -116,55 +84,24 @@ export async function getPendingApproval(): Promise<PendingApproval> {
   return { count: rows.length, amount }
 }
 
-// --- KPI: Parts Blocked --------------------------------------------------
-// Count of tickets currently blocked on parts (requested or ordered, not
-// yet received). Sums PM + Service since "blocked on parts" is the same
-// operational state regardless of ticket type.
-
-export async function getPartsBlockedCount(technicianId?: string): Promise<number> {
-  const supabase = await createClient()
-
-  let pmQ = supabase
-    .from('pm_tickets')
-    .select('id', { count: 'exact', head: true })
-    .is('deleted_at', null)
-    .or(
-      `parts_requested.cs.${JSON.stringify([{ status: 'requested' }])},parts_requested.cs.${JSON.stringify([{ status: 'ordered' }])}`
-    )
-    .not('status', 'in', '("completed","billed","skipped","skip_requested")')
-  let svcQ = supabase
-    .from('service_tickets')
-    .select('id', { count: 'exact', head: true })
-    .or(
-      `parts_requested.cs.${JSON.stringify([{ status: 'requested' }])},parts_requested.cs.${JSON.stringify([{ status: 'ordered' }])}`
-    )
-    .not('status', 'in', '("billed","declined","canceled")')
-
-  if (technicianId) {
-    pmQ = pmQ.eq('assigned_technician_id', technicianId)
-    svcQ = svcQ.eq('assigned_technician_id', technicianId)
-  }
-
-  const [pmRes, svcRes] = await Promise.all([pmQ, svcQ])
-  if (pmRes.error) throw pmRes.error
-  if (svcRes.error) throw svcRes.error
-
-  return (pmRes.count ?? 0) + (svcRes.count ?? 0)
-}
-
 // --- KPI: MTD Revenue (all ticket types) --------------------------------
+// pm_tickets uses `completed_date` (DATE), service_tickets uses
+// `completed_at` (TIMESTAMPTZ) — different column types and names.
 
 export async function getMtdRevenue(technicianId?: string): Promise<MtdRevenue> {
   const supabase = await createClient()
   const { start, end } = currentMonthRange()
+  const now = new Date()
+  const monthFirst = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10)
+  const nextMonthFirst = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10)
 
   let pmQ = supabase
     .from('pm_tickets')
     .select('billing_amount')
     .is('deleted_at', null)
     .in('status', ['completed', 'billed'])
-    .gte('completed_at', start)
-    .lt('completed_at', end)
+    .gte('completed_date', monthFirst)
+    .lt('completed_date', nextMonthFirst)
   let svcQ = supabase
     .from('service_tickets')
     .select('billing_amount')

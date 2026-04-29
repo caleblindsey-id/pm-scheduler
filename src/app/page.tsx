@@ -4,9 +4,7 @@ import { getTickets, getOverdueTicketCount, getSkipRequestedCount, getNeedsRevie
 import { getServiceTicketCounts, getPartsToOrderCount, getPartsOnOrderCount, getPartsReadyForPickupCount } from '@/lib/db/service-tickets'
 import {
   getOpenWorkCounts,
-  getMoneyAtRiskCounts,
   getPendingApproval,
-  getPartsBlockedCount,
   getMtdRevenue,
   getCreditHoldCount,
   getStaleEstimatesCount,
@@ -143,9 +141,7 @@ export default async function DashboardPage() {
     svcPartsOnOrder,
     svcPartsReadyForPickup,
     openWork,
-    moneyAtRisk,
     pendingApproval,
-    partsBlocked,
     mtdRevenue,
     creditHoldCount,
     staleEstimatesCount,
@@ -165,9 +161,7 @@ export default async function DashboardPage() {
     getPartsOnOrderCount(undefined, 'service'),
     getPartsReadyForPickupCount(undefined, 'service'),
     getOpenWorkCounts(),
-    getMoneyAtRiskCounts(),
     getPendingApproval(),
-    getPartsBlockedCount(),
     getMtdRevenue(),
     getCreditHoldCount(),
     getStaleEstimatesCount(14),
@@ -175,6 +169,10 @@ export default async function DashboardPage() {
     getTechLeadsPipeline(),
     getTechLeadBonusLeaderboard(5),
   ])
+
+  // Composed metrics — derived from already-fetched values to avoid duplicate queries.
+  const moneyAtRiskTotal = creditHoldCount + overdueCount
+  const partsBlocked = pmPartsToOrder + pmPartsOnOrder + svcPartsToOrder + svcPartsOnOrder
 
   const counts: Record<TicketStatus, number> = {
     unassigned: 0,
@@ -220,8 +218,8 @@ export default async function DashboardPage() {
     },
     {
       label: 'Money at Risk',
-      value: moneyAtRisk.total.toLocaleString('en-US'),
-      subtitle: `${moneyAtRisk.creditHold} on hold · ${moneyAtRisk.overdue} overdue`,
+      value: moneyAtRiskTotal.toLocaleString('en-US'),
+      subtitle: `${creditHoldCount} on hold · ${overdueCount} overdue`,
       tone: 'red',
       href: '/tickets?overdue=1',
     },
