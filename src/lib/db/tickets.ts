@@ -24,6 +24,21 @@ export type TicketDetail = PmTicketRow & {
   nextServiceYear: number | null
 }
 
+export async function getDashboardPmSummary(
+  month: number,
+  year: number
+): Promise<{ status: TicketStatus; scheduled_date: string | null }[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('pm_tickets')
+    .select('status, scheduled_date')
+    .is('deleted_at', null)
+    .eq('month', month)
+    .eq('year', year)
+  if (error) throw error
+  return (data ?? []) as { status: TicketStatus; scheduled_date: string | null }[]
+}
+
 export async function getTickets(filters?: {
   month?: number
   year?: number
