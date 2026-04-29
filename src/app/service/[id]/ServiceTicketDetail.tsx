@@ -89,7 +89,6 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
 
   const isTech = userRole === 'technician'
   const isManager = userRole === 'super_admin' || userRole === 'manager'
-  const canSeePricing = userRole === 'super_admin' || userRole === 'manager' || userRole === 'coordinator'
   const isStaff = !isTech && userRole !== null
 
   // --- State ---
@@ -1196,33 +1195,31 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
                   <PartsEntryList
                     parts={estimateParts}
                     setParts={setEstimateParts}
-                    showPricing={canSeePricing}
+                    showPricing={true}
                     showWarranty={ticket.billing_type === 'warranty' || ticket.billing_type === 'partial_warranty'}
                     label="Estimated Parts"
                     onRequestPart={handleRequestEstimatePart}
                   />
 
                   {/* Estimate summary */}
-                  {canSeePricing && (
-                    <div className="rounded-lg bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-3 max-w-lg">
-                      <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+                  <div className="rounded-lg bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-3 max-w-lg">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>Labor: {estimateLaborHours || '0'} hrs x ${laborRate.toFixed(2)}</span>
+                        <span>${estLaborTotal.toFixed(2)}</span>
+                      </div>
+                      {estimateParts.length > 0 && (
                         <div className="flex justify-between">
-                          <span>Labor: {estimateLaborHours || '0'} hrs x ${laborRate.toFixed(2)}</span>
-                          <span>${estLaborTotal.toFixed(2)}</span>
+                          <span>Parts {ticket.billing_type === 'warranty' ? '(warranty — $0)' : ''}</span>
+                          <span>${estPartsTotal.toFixed(2)}</span>
                         </div>
-                        {estimateParts.length > 0 && (
-                          <div className="flex justify-between">
-                            <span>Parts {ticket.billing_type === 'warranty' ? '(warranty — $0)' : ''}</span>
-                            <span>${estPartsTotal.toFixed(2)}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">
-                        <span className="text-base font-bold text-gray-900 dark:text-white">Estimate Total</span>
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">${estTotal.toFixed(2)}</span>
-                      </div>
+                      )}
                     </div>
-                  )}
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">
+                      <span className="text-base font-bold text-gray-900 dark:text-white">Estimate Total</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-white">${estTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
 
                   <p className="text-xs text-gray-400 dark:text-gray-500">
                     Estimates under $100 are auto-approved
@@ -1513,7 +1510,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
           )}
 
           {/* Completed: Mark Billed (staff only) */}
-          {ticket.status === 'completed' && canSeePricing && (
+          {ticket.status === 'completed' && isStaff && (
             <div className="space-y-2">
               {!synergyOrderNumber.trim() && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -1608,32 +1605,30 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
             <PartsEntryList
               parts={completionParts}
               setParts={setCompletionParts}
-              showPricing={canSeePricing}
+              showPricing={true}
               showWarranty={ticket.billing_type === 'warranty' || ticket.billing_type === 'partial_warranty'}
               label="Parts Used"
             />
 
-            {/* Billing summary — pricing users only */}
-            {canSeePricing && (
-              <div className="rounded-lg bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-3">
-                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+            {/* Billing summary */}
+            <div className="rounded-lg bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-3">
+              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+                <div className="flex justify-between">
+                  <span>Labor: {hoursWorked || '0'} hrs x ${laborRate.toFixed(2)}</span>
+                  <span>${laborTotal.toFixed(2)}</span>
+                </div>
+                {completionParts.length > 0 && (
                   <div className="flex justify-between">
-                    <span>Labor: {hoursWorked || '0'} hrs x ${laborRate.toFixed(2)}</span>
-                    <span>${laborTotal.toFixed(2)}</span>
+                    <span>Parts {ticket.billing_type === 'warranty' ? '(warranty — $0)' : ''}</span>
+                    <span>${partsTotal.toFixed(2)}</span>
                   </div>
-                  {completionParts.length > 0 && (
-                    <div className="flex justify-between">
-                      <span>Parts {ticket.billing_type === 'warranty' ? '(warranty — $0)' : ''}</span>
-                      <span>${partsTotal.toFixed(2)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">
-                  <span className="text-base font-bold text-gray-900 dark:text-white">Billing Total</span>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">${billingTotal.toFixed(2)}</span>
-                </div>
+                )}
               </div>
-            )}
+              <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">
+                <span className="text-base font-bold text-gray-900 dark:text-white">Billing Total</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">${billingTotal.toFixed(2)}</span>
+              </div>
+            </div>
 
             {/* Photos */}
             <div>
@@ -1717,7 +1712,7 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
       )}
 
       {/* ── Section 8: Billing Summary (read-only, completed/billed) ── */}
-      {(ticket.status === 'completed' || ticket.status === 'billed') && canSeePricing && (
+      {(ticket.status === 'completed' || ticket.status === 'billed') && (
         <Card title="Billing Summary">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
             <InfoField label="Billing Amount">

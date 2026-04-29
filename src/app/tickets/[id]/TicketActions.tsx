@@ -102,7 +102,6 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
   const pathname = usePathname()
 
   const isTech = userRole === 'technician'
-  const canSeePricing = userRole === 'super_admin' || userRole === 'manager' || userRole === 'coordinator'
 
   // Share work order state
   const [sharing, setSharing] = useState(false)
@@ -416,7 +415,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
           additionalPartsUsed: toPartUsed(additionalParts),
           additionalHoursWorked: parseFloat(additionalHoursWorked) || 0,
           completionNotes,
-          billingAmount: canSeePricing ? grandTotal : 0,
+          billingAmount: grandTotal,
           customerSignature: signatureImage,
           customerSignatureName: signatureName.trim(),
           photos: photos.map(({ storage_path, uploaded_at }) => ({ storage_path, uploaded_at })),
@@ -1065,8 +1064,8 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                 { showPrices: false, zeroPricesOnSelect: true, keyPrefix: 'pm' }
               )}
 
-              {/* PM Subtotal — managers/coordinators only */}
-              {canSeePricing && isFlatRate && (
+              {/* PM Subtotal */}
+              {isFlatRate && (
                 <div className="flex items-center justify-between mt-3 py-2 px-3 bg-blue-100 dark:bg-blue-900/30 rounded-md">
                   <span className="text-sm font-medium text-blue-800 dark:text-blue-300">PM Service — Flat Rate</span>
                   <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">${flatRate!.toFixed(2)}</span>
@@ -1113,8 +1112,8 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
                 { showPrices: true, zeroPricesOnSelect: false, keyPrefix: 'addl' }
               )}
 
-              {/* Additional Work Subtotal — managers/coordinators only */}
-              {canSeePricing && (additionalPartsTotal > 0 || additionalLaborTotal > 0) && (
+              {/* Additional Work Subtotal */}
+              {(additionalPartsTotal > 0 || additionalLaborTotal > 0) && (
                 <div className="mt-3 py-2 px-3 bg-amber-100 dark:bg-amber-900/30 rounded-md space-y-1">
                   {additionalLaborTotal > 0 && (
                     <div className="flex justify-between text-sm text-amber-900 dark:text-amber-300">
@@ -1136,23 +1135,19 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
               )}
             </div>
 
-            {/* ── GRAND TOTAL — managers/coordinators only ── */}
-            {canSeePricing && (
-              <div className="rounded-lg bg-gray-900 px-4 py-3 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500">
-                    {isFlatRate && `PM: $${pmSubtotal.toFixed(2)}`}
-                    {isFlatRate && additionalSubtotal > 0 && ' + '}
-                    {additionalSubtotal > 0 && `Additional: $${additionalSubtotal.toFixed(2)}`}
-                  </div>
-                  <span className="text-base font-bold text-white">Grand Total</span>
+            {/* ── GRAND TOTAL ── */}
+            <div className="rounded-lg bg-gray-900 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 dark:text-gray-500">
+                  {isFlatRate && `PM: $${pmSubtotal.toFixed(2)}`}
+                  {isFlatRate && additionalSubtotal > 0 && ' + '}
+                  {additionalSubtotal > 0 && `Additional: $${additionalSubtotal.toFixed(2)}`}
                 </div>
-                <span className="text-lg font-bold text-white">${grandTotal.toFixed(2)}</span>
+                <span className="text-base font-bold text-white">Grand Total</span>
               </div>
-            )}
-            {canSeePricing && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 -mt-3 text-right">Taxes not included</p>
-            )}
+              <span className="text-lg font-bold text-white">${grandTotal.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 -mt-3 text-right">Taxes not included</p>
 
             {/* Completion Notes */}
             <div>
@@ -1471,24 +1466,20 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
             {ticket.hours_worked ?? '—'}
           </p>
         </div>
-        {canSeePricing && (
-          <>
-            <div>
-              <span className="text-gray-500 dark:text-gray-400">Billing Amount</span>
-              <p className="text-gray-900 dark:text-white font-medium">
-                {ticket.billing_amount != null
-                  ? `$${ticket.billing_amount.toFixed(2)}`
-                  : '—'}
-              </p>
-            </div>
-            <div>
-              <span className="text-gray-500 dark:text-gray-400">Billing Exported</span>
-              <p className="text-gray-900 dark:text-white font-medium">
-                {ticket.billing_exported ? 'Yes' : 'No'}
-              </p>
-            </div>
-          </>
-        )}
+        <div>
+          <span className="text-gray-500 dark:text-gray-400">Billing Amount</span>
+          <p className="text-gray-900 dark:text-white font-medium">
+            {ticket.billing_amount != null
+              ? `$${ticket.billing_amount.toFixed(2)}`
+              : '—'}
+          </p>
+        </div>
+        <div>
+          <span className="text-gray-500 dark:text-gray-400">Billing Exported</span>
+          <p className="text-gray-900 dark:text-white font-medium">
+            {ticket.billing_exported ? 'Yes' : 'No'}
+          </p>
+        </div>
       </div>
 
       {/* PM Service Section (read-only) */}
@@ -1504,7 +1495,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
               </div>
             ))}
           </div>
-          {canSeePricing && isFlatRate && flatRate != null && (
+          {isFlatRate && flatRate != null && (
             <div className="flex justify-between mt-2 pt-2 border-t border-blue-200 dark:border-blue-800 text-sm font-semibold text-blue-800 dark:text-blue-300">
               <span>PM Service — Flat Rate</span>
               <span>${flatRate.toFixed(2)}</span>
@@ -1522,7 +1513,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
           {ticket.additional_hours_worked != null && ticket.additional_hours_worked > 0 && (
             <div className="text-sm text-gray-900 dark:text-white mb-1">
               Additional Labor: {ticket.additional_hours_worked} hrs
-              {canSeePricing && ` @ $${laborRate.toFixed(2)}/hr = $${(ticket.additional_hours_worked * laborRate).toFixed(2)}`}
+              {` @ $${laborRate.toFixed(2)}/hr = $${(ticket.additional_hours_worked * laborRate).toFixed(2)}`}
             </div>
           )}
           {ticket.additional_parts_used && ticket.additional_parts_used.length > 0 && (
@@ -1530,33 +1521,31 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
               {ticket.additional_parts_used.map((part, i) => (
                 <div key={`ro-addl-${i}`} className="text-sm text-gray-900 dark:text-white">
                   {part.description} — Qty: {part.quantity}
-                  {canSeePricing && ` @ $${part.unit_price.toFixed(2)} = $${(part.quantity * part.unit_price).toFixed(2)}`}
+                  {` @ $${part.unit_price.toFixed(2)} = $${(part.quantity * part.unit_price).toFixed(2)}`}
                 </div>
               ))}
             </div>
           )}
-          {canSeePricing && (
-            <div className="flex justify-between mt-2 pt-2 border-t border-amber-200 dark:border-amber-800 text-sm font-semibold text-amber-900 dark:text-amber-300">
-              <span>Additional Work Subtotal</span>
-              <span>
-                ${(
-                  ((ticket.additional_hours_worked ?? 0) * laborRate) +
-                  (ticket.additional_parts_used ?? []).reduce((s, p) => s + p.quantity * p.unit_price, 0)
-                ).toFixed(2)}
-              </span>
-            </div>
-          )}
+          <div className="flex justify-between mt-2 pt-2 border-t border-amber-200 dark:border-amber-800 text-sm font-semibold text-amber-900 dark:text-amber-300">
+            <span>Additional Work Subtotal</span>
+            <span>
+              ${(
+                ((ticket.additional_hours_worked ?? 0) * laborRate) +
+                (ticket.additional_parts_used ?? []).reduce((s, p) => s + p.quantity * p.unit_price, 0)
+              ).toFixed(2)}
+            </span>
+          </div>
         </div>
       )}
 
       {/* Grand Total (read-only) */}
-      {canSeePricing && ticket.billing_amount != null && (
+      {ticket.billing_amount != null && (
         <div className="rounded-lg bg-gray-900 px-4 py-3 flex items-center justify-between mb-1">
           <span className="text-base font-bold text-white">Grand Total</span>
           <span className="text-lg font-bold text-white">${ticket.billing_amount.toFixed(2)}</span>
         </div>
       )}
-      {canSeePricing && ticket.billing_amount != null && (
+      {ticket.billing_amount != null && (
         <p className="text-xs text-gray-400 dark:text-gray-500 text-right mb-3">Taxes not included</p>
       )}
 
