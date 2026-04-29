@@ -129,10 +129,32 @@ export async function getMtdRevenue(technicianId?: string): Promise<MtdRevenue> 
 
 export async function getCreditHoldCount(): Promise<number> {
   const supabase = await createClient()
+
+  const [pmRes, svcRes] = await Promise.all([
+    supabase
+      .from('pm_tickets')
+      .select('customer_id')
+      .is('deleted_at', null)
+      .in('status', OPEN_PM_STATUSES),
+    supabase
+      .from('service_tickets')
+      .select('customer_id')
+      .in('status', OPEN_SERVICE_STATUSES),
+  ])
+  if (pmRes.error) throw pmRes.error
+  if (svcRes.error) throw svcRes.error
+
+  const activeCustomerIds = new Set<string>()
+  for (const r of (pmRes.data ?? []) as { customer_id: string }[]) activeCustomerIds.add(r.customer_id)
+  for (const r of (svcRes.data ?? []) as { customer_id: string }[]) activeCustomerIds.add(r.customer_id)
+
+  if (activeCustomerIds.size === 0) return 0
+
   const { count, error } = await supabase
     .from('customers')
     .select('id', { count: 'exact', head: true })
     .eq('credit_hold', true)
+    .in('id', Array.from(activeCustomerIds))
   if (error) throw error
   return count ?? 0
 }
