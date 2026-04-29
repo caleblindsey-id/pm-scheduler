@@ -242,28 +242,74 @@ def discover_tables(conn) -> set[str]:
 # Sync: Customers
 # ============================================================
 
+def derive_credit_hold(row) -> bool:
+    """Compute credit_hold per the AR-office definition (confirmed by Tamara).
+
+    A customer is on hold if EITHER:
+      1. Their AR balance exceeds their credit limit, OR
+      2. They have AR balance older than their CreditCheckDays grace period.
+
+    Synergy AR aging buckets (`vwCustomer`):
+      AgeARAmount1 = current (not past due)
+      AgeARAmount2 = first past-due bucket  (~1–30 days past due)
+      AgeARAmount3 = second past-due bucket (~31–60)
+      AgeARAmount4 = oldest past-due bucket (~61+)
+
+    Mapping CreditCheckDays (per-customer grace period) onto those coarse buckets:
+      ccd ≤ 30  → past-due = A2 + A3 + A4 (anything past due counts)
+      31–60     → past-due = A3 + A4
+      ccd > 60  → past-due = A4
+    """
+    balance = float(row.CurrentARAgeBalance or 0)
+    limit = float(row.CreditLimit or 0)
+    ccd = int(row.CreditCheckDays or 0)
+    age2 = float(row.AgeARAmount2 or 0)
+    age3 = float(row.AgeARAmount3 or 0)
+    age4 = float(row.AgeARAmount4 or 0)
+
+    over_limit = limit > 0 and balance > limit
+
+    if ccd <= 30:
+        past_due = age2 + age3 + age4
+    elif ccd <= 60:
+        past_due = age3 + age4
+    else:
+        past_due = age4
+    overdue = past_due > 0
+
+    return over_limit or overdue
+
+
 def sync_customers(conn) -> int:
     log.info("--- Syncing customers ---")
     cursor = conn.cursor()
 
-    # SStop: 1 = normal, anything > 1 (e.g. 999) = credit hold / stop ship
-    # artermcode JOIN provides human-readable payment terms description
+    # credit_hold is derived per AR/office-manager definition in derive_credit_hold():
+    # hold if balance exceeds credit limit, OR has AR past their CreditCheckDays.
+    # vwCustomer JOIN exposes credit fields + AR aging buckets.
+    # artermcode JOIN provides human-readable payment terms description.
     # Exclude customers whose name contains "CLOSED" or "DO NOT USE" —
-    # these are inactive accounts in Synergy that should not appear in PM Scheduler.
+    # these are inactive accounts in Synergy that should not appear in CallBoard.
     cursor.execute("""
         SELECT
             cust.CustomerCode,
             cust.Name,
             artermcode.TermsDescription,
-            cust.SStop,
             cust.Addr1,
             cust.Addr2,
             cust.City,
             cust.State,
             cust.Zip4,
-            cust.PORequiredFlag
+            cust.PORequiredFlag,
+            cust.CreditLimit,
+            cust.CreditCheckDays,
+            vwCustomer.CurrentARAgeBalance,
+            vwCustomer.AgeARAmount2,
+            vwCustomer.AgeARAmount3,
+            vwCustomer.AgeARAmount4
         FROM cust
         LEFT JOIN artermcode ON artermcode.xDL4RecNum = cust.Terms
+        LEFT JOIN vwCustomer ON vwCustomer.CustomerCode = cust.CustomerCode
         WHERE cust.CustomerCode > 0
           AND UPPER(cust.Name) NOT LIKE '%CLOSED%'
           AND UPPER(cust.Name) NOT LIKE '%DO NOT USE%'
@@ -316,7 +362,7 @@ def sync_customers(conn) -> int:
             "name": str(row.Name).strip() if row.Name else "",
             "account_number": str(row.CustomerCode).strip(),
             "ar_terms": safe_str(row.TermsDescription),
-            "credit_hold": (row.SStop is not None and int(row.SStop) > 1),
+            "credit_hold": derive_credit_hold(row),
             "billing_address": billing_address,
             "billing_city": safe_str(row.City),
             "billing_state": safe_str(row.State),
