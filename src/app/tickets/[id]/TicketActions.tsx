@@ -174,6 +174,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
   // Auto-save debounce
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasInitialized = useRef(false)
+  const flushRef = useRef<() => void>(() => {})
 
   // Load preview URLs for existing photos
   useEffect(() => {
@@ -439,7 +440,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
     }
   }
 
-  async function saveProgress() {
+  async function saveProgress(opts?: { keepalive?: boolean }) {
     setSaving(true)
     setError(null)
     setSaveSuccess(false)
@@ -447,6 +448,7 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
       const res = await fetch(`/api/tickets/${ticket.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: opts?.keepalive ?? false,
         body: JSON.stringify({
           completed_date: completedDate || null,
           hours_worked: parseFloat(hoursWorked) || null,
@@ -497,6 +499,35 @@ export default function TicketActions({ ticket, userRole, userId, laborRate }: T
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completedDate, hoursWorked, machineHours, dateCode, completionNotes, pmParts, additionalParts, additionalHoursWorked, poNumber, billingContactName, billingContactEmail, billingContactPhone, photos])
+
+  // Keep the unmount-flush closure pointing at the latest state. Refreshed
+  // every render so the captured saveProgress sees current field values.
+  useEffect(() => {
+    flushRef.current = () => {
+      if (!autoSaveTimer.current) return
+      clearTimeout(autoSaveTimer.current)
+      autoSaveTimer.current = null
+      void saveProgress({ keepalive: true })
+    }
+  })
+
+  // Flush any pending debounce when the component unmounts (in-app
+  // navigation via <Link>, router.push, browser back, etc.). Without this
+  // the cleanup in the auto-save effect just clears the timer and the
+  // tech's edits are silently dropped.
+  useEffect(() => () => flushRef.current(), [])
+
+  // Warn on hard navigation (tab close, refresh) while a save is pending.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (autoSaveTimer.current) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
