@@ -42,6 +42,9 @@ export function CreateServiceTicketForm() {
   const [eqMake, setEqMake] = useState('')
   const [eqModel, setEqModel] = useState('')
   const [eqSerial, setEqSerial] = useState('')
+  const [eqDescription, setEqDescription] = useState('')
+  const [eqLocation, setEqLocation] = useState('')
+  const [eqConflictId, setEqConflictId] = useState<string | null>(null)
 
   // --- Ticket fields ---
   const [ticketType, setTicketType] = useState<ServiceTicketType>('inside')
@@ -149,6 +152,9 @@ export function CreateServiceTicketForm() {
       setEqMake('')
       setEqModel('')
       setEqSerial('')
+      setEqDescription('')
+      setEqLocation('')
+      setEqConflictId(null)
       return
     }
     const supabase = createClient()
@@ -243,6 +249,9 @@ export function CreateServiceTicketForm() {
       setEqMake('')
       setEqModel('')
       setEqSerial('')
+      setEqDescription('')
+      setEqLocation('')
+      setEqConflictId(null)
     }
   }
 
@@ -259,7 +268,48 @@ export function CreateServiceTicketForm() {
       return
     }
 
+    // When registering new equipment, require at least a make or model
+    if ((unknownEquipment || noEquipment) && !eqMake.trim() && !eqModel.trim()) {
+      setError('Enter at least a make or model for the equipment.')
+      return
+    }
+
     setLoading(true)
+    setEqConflictId(null)
+
+    // Register new equipment first; ticket links to the resulting profile
+    let resolvedEquipmentId = equipmentId || undefined
+    if (unknownEquipment || noEquipment) {
+      const eqRes = await fetch('/api/equipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: customerId,
+          ship_to_location_id: shipToId ? parseInt(shipToId, 10) : undefined,
+          make: eqMake || undefined,
+          model: eqModel || undefined,
+          serial_number: eqSerial || undefined,
+          description: eqDescription || undefined,
+          location_on_site: eqLocation || undefined,
+          contact_name: contactName || undefined,
+          contact_email: contactEmail || undefined,
+          contact_phone: contactPhone || undefined,
+        }),
+      })
+      const eqData = await eqRes.json().catch(() => ({}))
+      if (eqRes.status === 409) {
+        setEqConflictId(eqData.existing_id ?? null)
+        setError('Equipment with this serial number already exists for this customer.')
+        setLoading(false)
+        return
+      }
+      if (!eqRes.ok) {
+        setError(eqData.error ?? 'Failed to register equipment.')
+        setLoading(false)
+        return
+      }
+      resolvedEquipmentId = eqData.id
+    }
 
     const diagnosticChargeParsed = diagnosticCharge.trim() ? parseFloat(diagnosticCharge) : NaN
     const diagnosticInvoiceTrimmed = diagnosticInvoiceNumber.trim()
@@ -281,14 +331,9 @@ export function CreateServiceTicketForm() {
       diagnostic_invoice_number: diagnosticInvoiceTrimmed || undefined,
     }
 
-    // Equipment — either existing or unknown inline fields
-    if (equipmentId) {
-      payload.equipment_id = equipmentId
-    }
-    if (unknownEquipment) {
-      payload.equipment_make = eqMake || undefined
-      payload.equipment_model = eqModel || undefined
-      payload.equipment_serial_number = eqSerial || undefined
+    // Equipment — link to existing or newly created profile
+    if (resolvedEquipmentId) {
+      payload.equipment_id = resolvedEquipmentId
     }
 
     // Service address — outside tickets only
@@ -469,7 +514,7 @@ export function CreateServiceTicketForm() {
                       ? 'Select a customer first'
                       : !equipmentLoaded
                         ? 'Loading equipment...'
-                        : 'Select equipment (optional)'}
+                        : 'Select equipment or register new'}
                   </option>
                   {equipment.map((eq) => (
                     <option key={eq.id} value={eq.id}>
@@ -483,39 +528,75 @@ export function CreateServiceTicketForm() {
               )}
             </div>
 
-            {/* Unknown equipment inline fields */}
+            {/* New equipment registration form */}
             {(unknownEquipment || noEquipment) && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className={labelClass}>Make</label>
-                  <input
-                    type="text"
-                    value={eqMake}
-                    onChange={(e) => setEqMake(e.target.value)}
-                    placeholder="e.g. Tennant"
-                    className={inputClass}
-                  />
+              <div className="space-y-3">
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  This equipment isn&apos;t on file yet — register it below. A profile will be created and linked to this ticket so service history is tracked.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelClass}>Make <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={eqMake}
+                      onChange={(e) => { setEqMake(e.target.value); setEqConflictId(null) }}
+                      placeholder="e.g. Tennant"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Model <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={eqModel}
+                      onChange={(e) => { setEqModel(e.target.value); setEqConflictId(null) }}
+                      placeholder="e.g. T7AMR"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Serial Number</label>
+                    <input
+                      type="text"
+                      value={eqSerial}
+                      onChange={(e) => { setEqSerial(e.target.value); setEqConflictId(null) }}
+                      placeholder="e.g. 12345"
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className={labelClass}>Model</label>
-                  <input
-                    type="text"
-                    value={eqModel}
-                    onChange={(e) => setEqModel(e.target.value)}
-                    placeholder="e.g. T7AMR"
-                    className={inputClass}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Notes / Description</label>
+                    <input
+                      type="text"
+                      value={eqDescription}
+                      onChange={(e) => setEqDescription(e.target.value)}
+                      placeholder="e.g. Floor scrubber, Bay 3"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Location on Site</label>
+                    <input
+                      type="text"
+                      value={eqLocation}
+                      onChange={(e) => setEqLocation(e.target.value)}
+                      placeholder="e.g. Warehouse A"
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className={labelClass}>Serial Number</label>
-                  <input
-                    type="text"
-                    value={eqSerial}
-                    onChange={(e) => setEqSerial(e.target.value)}
-                    placeholder="e.g. 12345"
-                    className={inputClass}
-                  />
-                </div>
+                {eqConflictId && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    Equipment with this serial number already exists for this customer.{' '}
+                    <Link href={`/equipment/${eqConflictId}`} className="underline font-medium">
+                      View existing
+                    </Link>
+                    {' '}— or select it from the equipment dropdown above.
+                  </p>
+                )}
               </div>
             )}
           </div>

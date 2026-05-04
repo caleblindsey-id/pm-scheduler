@@ -13,6 +13,7 @@ import PartSynergyPicker from '@/components/PartSynergyPicker'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/image-utils'
 import { getPublicAppUrl } from '@/lib/urls'
+import RegisterEquipmentPanel from './RegisterEquipmentPanel'
 import type {
   ServiceTicketDetail as ServiceTicketDetailType,
   ServiceTicketStatus,
@@ -149,6 +150,9 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
   const [diagnosticInvoiceNumber, setDiagnosticInvoiceNumber] = useState(
     ticket.diagnostic_invoice_number ?? ''
   )
+
+  // Equipment registration (for tickets with denormalized equipment fields)
+  const [registeringEquipment, setRegisteringEquipment] = useState(false)
 
   // Contact edit state — staff can update name/email/phone after submission
   const [editingContact, setEditingContact] = useState(false)
@@ -756,6 +760,28 @@ export function ServiceTicketDetail({ ticket, userRole, userId, laborRate }: Ser
               >
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
+            )}
+            {isStaff && !ticket.equipment_id && (ticket.equipment_make || ticket.equipment_model || ticket.equipment_serial_number) && (
+              !registeringEquipment ? (
+                <button
+                  type="button"
+                  onClick={() => setRegisteringEquipment(true)}
+                  className="block mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Register equipment profile
+                </button>
+              ) : (
+                <RegisterEquipmentPanel
+                  ticketId={ticket.id}
+                  customerId={ticket.customer_id}
+                  shipToId={ticket.ship_to_location_id ?? null}
+                  make={ticket.equipment_make ?? null}
+                  model={ticket.equipment_model ?? null}
+                  serial={ticket.equipment_serial_number ?? null}
+                  onDone={() => router.refresh()}
+                  onCancel={() => setRegisteringEquipment(false)}
+                />
+              )
             )}
           </InfoField>
           <InfoField label="Serial Number">
