@@ -105,6 +105,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
     }
 
+    // Service tickets: estimate must be approved before parts can be ordered.
+    if (
+      source === 'service' &&
+      (action === 'mark_ordered' || action === 'mark_received') &&
+      (ticket.status === 'open' || ticket.status === 'estimated')
+    ) {
+      return NextResponse.json(
+        { error: 'The estimate must be approved before parts can be ordered.' },
+        { status: 409 }
+      )
+    }
+
     // Don't allow part mutations on already-billed/completed parent tickets —
     // those rows have been exported and post-hoc edits silently corrupt records.
     if (ticket.status === 'billed' || ticket.status === 'completed') {
