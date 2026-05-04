@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 // ── Types (shared with ServiceTicketDetail) ──
@@ -95,6 +95,12 @@ interface PartsEntryListProps {
 export default function PartsEntryList({ parts, setParts, showPricing, showWarranty, label = 'Parts', showVendorItemCode = false, onRequestPart }: PartsEntryListProps) {
   const debounceRefs = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
   const comboRefs = useRef<Map<number, HTMLDivElement | null>>(new Map())
+  // Tracks which dropdown result is keyboard-highlighted per row (-1 = none)
+  const [focusedIndices, setFocusedIndices] = useState<Record<number, number>>({})
+
+  const clearFocus = useCallback((idx: number) => {
+    setFocusedIndices((prev) => { const n = { ...prev }; delete n[idx]; return n })
+  }, [])
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -107,12 +113,13 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
             updated[idx] = { ...updated[idx], searchOpen: false }
             return updated
           })
+          clearFocus(idx)
         }
       })
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [setParts])
+  }, [setParts, clearFocus])
 
   function handlePartSearch(index: number, value: string) {
     setParts((prev) => {
@@ -165,6 +172,8 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
         }
         return u
       })
+      // Reset keyboard focus whenever new results arrive
+      clearFocus(index)
     }, 300))
   }
 
@@ -183,6 +192,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
       }
       return updated
     })
+    clearFocus(index)
   }
 
   function handleClearProduct(index: number) {
@@ -224,17 +234,46 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
                     placeholder="Search products..."
                     value={part.description}
                     onChange={(e) => handlePartSearch(i, e.target.value)}
+                    onKeyDown={(e) => {
+                      const results = part.searchResults
+                      const focused = focusedIndices[i] ?? -1
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        if (part.searchOpen && results.length > 0)
+                          setFocusedIndices((prev) => ({ ...prev, [i]: Math.min(focused + 1, results.length - 1) }))
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        if (part.searchOpen && results.length > 0)
+                          setFocusedIndices((prev) => ({ ...prev, [i]: Math.max(focused - 1, 0) }))
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (part.searchOpen && results.length > 0)
+                          handleSelectProduct(i, results[focused >= 0 ? focused : 0])
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault()
+                        setParts((prev) => {
+                          const u = [...prev]
+                          if (u[i]) u[i] = { ...u[i], searchOpen: false }
+                          return u
+                        })
+                        clearFocus(i)
+                      }
+                    }}
                     className="w-full rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-3 h-[44px] sm:h-[34px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
                   />
                 )}
                 {part.searchOpen && part.searchResults.length > 0 && (
                   <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {part.searchResults.map((product) => (
+                    {part.searchResults.map((product, ri) => (
                       <button
                         key={product.id}
                         type="button"
                         onClick={() => handleSelectProduct(i, product)}
-                        className="w-full text-left px-3 py-3 sm:py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                        className={`w-full text-left px-3 py-3 sm:py-2 text-sm border-b border-gray-100 dark:border-gray-700 last:border-0 ${
+                          focusedIndices[i] === ri
+                            ? 'bg-slate-100 dark:bg-slate-700'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
                       >
                         <span className="font-medium text-gray-900 dark:text-white">{product.number}</span>
                         <span className="text-gray-500 dark:text-gray-400"> — {product.description ?? ''}</span>
@@ -274,6 +313,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
                         return u
                       })
                     }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
                     className="w-16 rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 px-2 h-[44px] sm:h-[34px] text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-500"
                   />
                 </div>
@@ -292,6 +332,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
                           return u
                         })
                       }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
                       readOnly={part.isFromDb}
                       className={`w-24 rounded-md border px-2 h-[44px] sm:h-[34px] text-sm text-right focus:outline-none focus:ring-2 focus:ring-slate-500 ${
                         part.isFromDb ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 cursor-not-allowed dark:text-white' : 'border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600'
@@ -329,6 +370,7 @@ export default function PartsEntryList({ parts, setParts, showPricing, showWarra
                           return u
                         })
                       }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
                       placeholder="optional"
                       className="w-32 rounded-md border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-500 px-2 h-[44px] sm:h-[34px] text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
                     />
