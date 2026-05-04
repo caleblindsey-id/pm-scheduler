@@ -60,7 +60,7 @@ export default function AutoApproveThresholdInput({
           <input
             type="number"
             min="0"
-            step="1"
+            step="0.01"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             className="w-24 py-1 pr-2 text-sm text-gray-900 dark:text-white bg-transparent focus:outline-none"
