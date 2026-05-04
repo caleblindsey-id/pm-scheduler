@@ -172,22 +172,14 @@ export async function getServiceTicketsForEquipment(equipmentId: string) {
 export async function getPartsToOrderCount(ticketType?: 'pm' | 'service'): Promise<number> {
   const supabase = await createClient()
 
-  if (ticketType === 'pm') {
-    const { count, error } = await supabase
-      .from('pm_tickets')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .filter('parts_requested', 'cs', JSON.stringify([{ status: 'requested' }]))
-      .not('status', 'in', '("completed","billed","skipped","skip_requested")')
-    if (error) throw error
-    return count ?? 0
-  }
+  const source = ticketType === 'pm' ? 'pm' : 'service'
 
   const { count, error } = await supabase
-    .from('service_tickets')
-    .select('id', { count: 'exact', head: true })
-    .eq('parts_received', false)
-    .neq('parts_requested', '[]' as unknown as PartRequest[])
+    .from('parts_order_queue')
+    .select('ticket_id', { count: 'exact', head: true })
+    .eq('source', source)
+    .eq('status', 'requested')
+    .eq('cancelled', false)
 
   if (error) throw error
   return count ?? 0
